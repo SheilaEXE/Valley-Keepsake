@@ -33,7 +33,7 @@ internal sealed class ConfigWindow : Window
         root.Children.Add(new StackPanel { Spacing = 4, Children =
         {
             new TextBlock { Text = T("Backup de configurações dos mods", "Mod settings backup"), FontSize = 22, FontWeight = FontWeight.Bold, Foreground = Brush("#A1E84A") },
-            new TextBlock { Text = T("Salve seus config.json antes de atualizar. Cada restauração pede sua confirmação e protege a configuração atual em um backup datado.", "Save config.json files before updating. Each restore asks for confirmation and backs up the current settings first."), TextWrapping = TextWrapping.Wrap, Foreground = Brush("#AEE0E7") }
+            new TextBlock { Text = T("Salve seus config.json antes de atualizar. A configuração atual é guardada antes de cada restauração.", "Save config.json files before updating. Current settings are backed up before each restore."), TextWrapping = TextWrapping.Wrap, Foreground = Brush("#AEE0E7") }
         }});
         var grid = new DataGrid { ItemsSource = rows, AutoGenerateColumns = false, HeadersVisibility = DataGridHeadersVisibility.Column, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, Background = Brush("#103148"), Foreground = Brushes.White, BorderBrush = Brush("#1A617D"), Margin = new Thickness(0, 18, 0, 0) };
         grid.Columns.Add(new DataGridCheckBoxColumn { Header = T("Restaurar", "Restore"), Binding = new Binding("Selected") });
@@ -42,14 +42,16 @@ internal sealed class ConfigWindow : Window
         grid.Columns.Add(new DataGridTextColumn { Header = T("Situação", "Status"), Binding = new Binding("Status"), Width = new DataGridLength(180) });
         grid.Columns.Add(new DataGridTextColumn { Header = T("Detalhes", "Details"), Binding = new Binding("Detail"), Width = new DataGridLength(1.5, DataGridLengthUnitType.Star) });
         Grid.SetRow(grid, 1); root.Children.Add(grid);
-        var footer = new Grid { Margin = new Thickness(0, 14, 0, 0), ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var footer = new Grid { Margin = new Thickness(0, 14, 0, 0), RowDefinitions = new RowDefinitions("Auto,Auto") };
         footer.Children.Add(summary);
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
         var refresh = Button(T("Atualizar lista", "Refresh list"), "#685BA6"); refresh.Click += (_, _) => LoadResults();
         var export = Button(T("Exportar todos os configs", "Export all settings"), "#1A617D"); export.Click += ExportAll;
         var restore = Button(T("Restaurar selecionados", "Restore selected"), "#286A58"); restore.Click += RestoreSelected;
-        actions.Children.Add(refresh); actions.Children.Add(export); actions.Children.Add(restore);
-        Grid.SetColumn(actions, 1); footer.Children.Add(actions);
+        var restoreAll = Button(T("Restaurar tudo", "Restore all"), "#286A58"); restoreAll.Click += RestoreAll;
+        ToolTip.SetTip(restoreAll, T("Restaura todos os configs ausentes ou diferentes com uma confirmação única. Os arquivos atuais substituídos são guardados antes.", "Restores all missing or different configs with one confirmation. Existing files are backed up first."));
+        actions.Children.Add(refresh); actions.Children.Add(export); actions.Children.Add(restore); actions.Children.Add(restoreAll);
+        Grid.SetRow(actions, 1); footer.Children.Add(actions);
         Grid.SetRow(footer, 2); root.Children.Add(footer);
         Content = root;
         LoadResults();
@@ -97,9 +99,39 @@ internal sealed class ConfigWindow : Window
         if (restored > 0) await NoticeAsync(T("Concluído", "Done"), T($"{restored} configuração(ões) restaurada(s).", $"{restored} settings restored."));
     }
 
+    private async void RestoreAll(object? sender, RoutedEventArgs e)
+    {
+        LoadResults();
+        var pending = results.Where(x => x.State == ConfigState.ReadyToRestore).ToList();
+        if (pending.Count == 0)
+        {
+            await NoticeAsync(T("Nada para restaurar", "Nothing to restore"), T("Não há configurações diferentes ou ausentes para restaurar.", "There are no missing or different settings to restore."));
+            return;
+        }
+
+        var existing = pending.Count(x => File.Exists(Path.Combine(x.Mod.Directory, "config.json")));
+        var confirmed = await ConfirmAsync(T("Confirmar restauração de tudo", "Confirm restore all"),
+            string.Format(T("Restaurar {0} configuração(ões) salva(s)?\n\n{1} arquivo(s) atual(is) diferente(s) serão guardados em backup datado antes da substituição. Os demais configs ausentes serão criados.",
+                "Restore {0} saved configuration(s)?\n\n{1} different existing file(s) will be saved in a dated backup before replacement. Missing configs will be created."), pending.Count, existing),
+            confirmAll: true);
+        if (confirmed != true) return;
+
+        var restored = 0;
+        var failures = new List<string>();
+        foreach (var result in pending)
+        {
+            try { configService.Restore(libraryRoot, result); restored++; }
+            catch (Exception ex) { failures.Add($"{result.Mod.DisplayName}: {ex.Message}"); }
+        }
+        LoadResults();
+        var message = string.Format(T("{0} configuração(ões) restaurada(s). {1} falha(s).", "{0} configuration(s) restored. {1} failure(s)."), restored, failures.Count);
+        if (failures.Count > 0) message += "\n\n" + string.Join("\n", failures.Take(10));
+        await NoticeAsync(T("Restauração concluída", "Restore complete"), message);
+    }
+
     private Task NoticeAsync(string title, string message) => ConfirmAsync(title, message, false);
 
-    private async Task<bool?> ConfirmAsync(string title, string message, bool showChoices = true)
+    private async Task<bool?> ConfirmAsync(string title, string message, bool showChoices = true, bool confirmAll = false)
     {
         var dialog = new Window { Title = title, Width = 540, MinHeight = 210, SizeToContent = SizeToContent.Height, CanResize = false, Background = Brush("#0A1F35"), WindowStartupLocation = WindowStartupLocation.CenterOwner };
         var panel = new StackPanel { Margin = new Thickness(22), Spacing = 16 };
@@ -108,9 +140,17 @@ internal sealed class ConfigWindow : Window
         if (showChoices)
         {
             var yes = Button(T("Restaurar", "Restore"), "#286A58"); yes.Click += (_, _) => dialog.Close(true);
-            var no = Button(T("Pular", "Skip"), "#685BA6"); no.Click += (_, _) => dialog.Close(false);
-            var cancel = Button(T("Parar", "Stop"), "#7A4147"); cancel.Click += (_, _) => dialog.Close(null);
-            buttons.Children.Add(cancel); buttons.Children.Add(no); buttons.Children.Add(yes);
+            if (confirmAll)
+            {
+                var cancelAll = Button(T("Cancelar", "Cancel"), "#7A4147"); cancelAll.Click += (_, _) => dialog.Close(false);
+                buttons.Children.Add(cancelAll); buttons.Children.Add(yes);
+            }
+            else
+            {
+                var no = Button(T("Pular", "Skip"), "#685BA6"); no.Click += (_, _) => dialog.Close(false);
+                var cancel = Button(T("Parar", "Stop"), "#7A4147"); cancel.Click += (_, _) => dialog.Close(null);
+                buttons.Children.Add(cancel); buttons.Children.Add(no); buttons.Children.Add(yes);
+            }
         }
         else
         {

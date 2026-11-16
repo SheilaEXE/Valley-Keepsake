@@ -10,6 +10,7 @@ internal sealed class MainForm : Form
     private readonly TranslationService service = new();
     private readonly PrivateFontCollection titleFonts = new();
     private readonly TextBox libraryBox = StyledTextBox();
+    private readonly TextBox configLibraryBox = StyledTextBox();
     private readonly TextBox modsBox = StyledTextBox();
     private readonly TextBox searchBox = StyledTextBox(T("Digite o nome do mod, tradução ou UniqueID…", "Search for a mod, translation, or UniqueID…"));
     private readonly DataGridView grid = new();
@@ -21,9 +22,11 @@ internal sealed class MainForm : Form
     private readonly GlowButton configsButton = new() { AccentColor = Color.FromArgb(130, 114, 210) };
     private readonly Label help = new();
     private readonly Label libraryLabel = new();
+    private readonly Label configLibraryLabel = new();
     private readonly Label modsLabel = new();
     private readonly Label searchLabel = new();
     private readonly GlowButton libraryBrowse = new() { AccentColor = Color.FromArgb(108, 224, 230), Margin = new Padding(0, 3, 0, 3) };
+    private readonly GlowButton configLibraryBrowse = new() { AccentColor = Color.FromArgb(108, 224, 230), Margin = new Padding(0, 3, 0, 3) };
     private readonly GlowButton modsBrowse = new() { AccentColor = Color.FromArgb(108, 224, 230), Margin = new Padding(0, 3, 0, 3) };
     private readonly ComboBox languagePicker = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160 };
     private readonly ComboBox localePicker = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160 };
@@ -36,6 +39,7 @@ internal sealed class MainForm : Form
     private bool populatingGrid;
     private List<ApplyRecord> lastApply = [];
     private string? lastBackup;
+    private bool configLibraryCustomized = ConfigBackupService.LoadSelectedStorageRoot() is not null;
 
     public MainForm()
     {
@@ -64,20 +68,27 @@ internal sealed class MainForm : Form
         help.ForeColor = Color.FromArgb(174, 223, 231);
         help.Margin = new Padding(0, 0, 0, 16);
 
-        var paths = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 3, RowCount = 3, BackColor = Color.FromArgb(19, 58, 83), Padding = new Padding(14, 8, 14, 8) };
+        var paths = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 3, RowCount = 4, BackColor = Color.FromArgb(19, 58, 83), Padding = new Padding(14, 8, 14, 8) };
         paths.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 205));
         paths.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         paths.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         AddPathRow(paths, 0, libraryLabel, libraryBox, libraryBrowse, () => Browse(libraryBox));
-        AddPathRow(paths, 1, modsLabel, modsBox, modsBrowse, () => Browse(modsBox));
+        AddPathRow(paths, 1, configLibraryLabel, configLibraryBox, configLibraryBrowse, BrowseConfigLibrary);
+        AddPathRow(paths, 2, modsLabel, modsBox, modsBrowse, () => Browse(modsBox));
         searchLabel.ForeColor = Color.FromArgb(194, 239, 235);
         searchLabel.Anchor = AnchorStyles.Left;
         searchLabel.AutoSize = true;
         searchLabel.Margin = new Padding(0, 9, 8, 5);
-        paths.Controls.Add(searchLabel, 0, 2);
+        paths.Controls.Add(searchLabel, 0, 3);
         searchBox.Margin = new Padding(0, 5, 8, 5);
-        paths.Controls.Add(searchBox, 1, 2);
+        paths.Controls.Add(searchBox, 1, 3);
         libraryBox.Text = @"D:\Traduções PT-BR Stardew Valley";
+        configLibraryBox.Text = ConfigBackupService.LoadSelectedStorageRoot() ?? ConfigBackupService.DefaultStorageRoot(libraryBox.Text);
+        libraryBox.TextChanged += (_, _) =>
+        {
+            if (!configLibraryCustomized) configLibraryBox.Text = ConfigBackupService.DefaultStorageRoot(libraryBox.Text);
+        };
+        configLibraryBox.Leave += (_, _) => SaveConfigLibraryPath();
         modsBox.Text = GuessModsPath() ?? "";
 
         ConfigureGrid();
@@ -178,10 +189,11 @@ internal sealed class MainForm : Form
         interfaceLanguageLabel.Text = T("Interface:", "Interface:");
         translationLanguageLabel.Text = T("Idioma da tradução:", "Translation language:");
         libraryLabel.Text = T("Biblioteca de traduções:", "Translation library:");
+        configLibraryLabel.Text = T("Biblioteca de configurações:", "Settings library:");
         modsLabel.Text = T("Pasta Mods do Stardew:", "Stardew Mods folder:");
         searchLabel.Text = T("Pesquisar na lista:", "Search list:");
         searchBox.PlaceholderText = T("Digite o nome do mod, tradução ou UniqueID…", "Search for a mod, translation, or UniqueID…");
-        libraryBrowse.Text = modsBrowse.Text = T("Escolher…", "Browse…");
+        libraryBrowse.Text = configLibraryBrowse.Text = modsBrowse.Text = T("Escolher…", "Browse…");
         analyzeButton.Text = T("Analisar", "Analyze");
         prepareButton.Text = T("Procurar novos mods", "Find new mods");
         configsButton.Text = T("Backup de configurações", "Settings backup");
@@ -192,13 +204,14 @@ internal sealed class MainForm : Form
         grid.Columns["Target"]!.HeaderText = T("Mod encontrado", "Matched mod");
         grid.Columns["Status"]!.HeaderText = T("Situação", "Status");
         grid.Columns["Detail"]!.HeaderText = T("Detalhes", "Details");
-        summary.Text = T("Escolha as duas pastas para começar.", "Choose both folders to get started.");
+        summary.Text = T("Para analisar traduções, escolha a biblioteca de traduções e a pasta Mods.", "To analyze translations, choose the translation library and Mods folder.");
         toolTips.SetToolTip(analyzeButton, T("Procura traduções na biblioteca e compara com os mods instalados.", "Finds library translations and matches them to installed mods."));
         toolTips.SetToolTip(prepareButton, T("Procura novos mods, guarda referências e copia traduções do idioma escolhido que ainda não estão na biblioteca.", "Finds new mods, saves references, and copies selected-language translations not yet in the library."));
         toolTips.SetToolTip(configsButton, T("Salva e restaura arquivos config.json dos mods.", "Back up and restore mod config.json files."));
         toolTips.SetToolTip(applyButton, T("Aplica aos mods as traduções marcadas para o idioma selecionado.", "Applies checked translations for the selected language to the mods."));
         toolTips.SetToolTip(undoButton, T("Desfaz os arquivos aplicados na última operação desta sessão.", "Undoes files applied in the last operation of this session."));
         toolTips.SetToolTip(libraryBrowse, T("Escolha onde sua biblioteca de traduções fica guardada.", "Choose where your translation library is stored."));
+        toolTips.SetToolTip(configLibraryBrowse, T("Escolha diretamente a pasta que guarda os backups de config.json.", "Choose the folder that directly contains the config.json backups."));
         toolTips.SetToolTip(modsBrowse, T("Escolha a pasta Mods da instalação do Stardew Valley.", "Choose your Stardew Valley installation's Mods folder."));
         toolTips.SetToolTip(languagePicker, T("Idioma da interface do programa.", "Program interface language."));
         toolTips.SetToolTip(localePicker, T("Idioma das traduções exibidas e aplicadas; um de cada vez.", "Language of the translations shown and applied, one at a time."));
@@ -281,6 +294,21 @@ internal sealed class MainForm : Form
     {
         using var dialog = new FolderBrowserDialog { ShowNewFolderButton = false, InitialDirectory = Directory.Exists(target.Text) ? target.Text : "" };
         if (dialog.ShowDialog(this) == DialogResult.OK) target.Text = dialog.SelectedPath;
+    }
+
+    private void BrowseConfigLibrary()
+    {
+        using var dialog = new FolderBrowserDialog { ShowNewFolderButton = true, InitialDirectory = Directory.Exists(configLibraryBox.Text) ? configLibraryBox.Text : libraryBox.Text };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        configLibraryBox.Text = dialog.SelectedPath;
+        SaveConfigLibraryPath();
+    }
+
+    private void SaveConfigLibraryPath()
+    {
+        if (!Directory.Exists(configLibraryBox.Text)) return;
+        try { ConfigBackupService.SaveSelectedStorageRoot(configLibraryBox.Text); configLibraryCustomized = true; }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, T("Não foi possível salvar o caminho", "Could not save folder path"), MessageBoxButtons.OK, MessageBoxIcon.Warning); }
     }
 
     private void Analyze()
@@ -549,12 +577,29 @@ internal sealed class MainForm : Form
 
     private void OpenConfigBackup()
     {
-        if (!Directory.Exists(libraryBox.Text) || !Directory.Exists(modsBox.Text))
+        if (!Directory.Exists(modsBox.Text))
         {
-            MessageBox.Show(this, T("Escolha primeiro a biblioteca de traduções e a pasta Mods.", "Choose the translation library and Mods folder first."), T("Pastas necessárias", "Folders required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, T("Escolha uma pasta Mods existente.", "Choose an existing Mods folder."), T("Pasta necessária", "Folder required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
-        using var dialog = new ConfigBackupForm(libraryBox.Text, modsBox.Text, service);
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(configLibraryBox.Text) && !Directory.Exists(configLibraryBox.Text) &&
+                Path.GetFullPath(configLibraryBox.Text).Equals(Path.GetFullPath(ConfigBackupService.DefaultStorageRoot(libraryBox.Text)), StringComparison.OrdinalIgnoreCase))
+                Directory.CreateDirectory(configLibraryBox.Text);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, T("Não foi possível abrir a biblioteca de configurações", "Could not open settings library"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+        if (!Directory.Exists(configLibraryBox.Text))
+        {
+            MessageBox.Show(this, T("Escolha uma pasta existente para a biblioteca de configurações.", "Choose an existing settings library folder."), T("Pasta necessária", "Folder required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        SaveConfigLibraryPath();
+        using var dialog = new ConfigBackupForm(configLibraryBox.Text, modsBox.Text, service);
         dialog.ShowDialog(this);
     }
 
@@ -598,11 +643,7 @@ internal sealed class MainForm : Form
             var initialFolder = Path.Combine(mod.Directory, "i18n");
             var folderStyle = Directory.Exists(initialFolder) && Directory.EnumerateDirectories(initialFolder)
                 .Any(path => TranslationLocales.SameTargetLanguage(Path.GetFileName(path), SelectedLocale));
-            var chooseFolder = MessageBox.Show(this,
-                T("Como está guardada a tradução?\n\nSim: pasta do idioma (por exemplo, i18n/pt/).\nNão: arquivo do idioma (por exemplo, i18n/pt.json).\nCancelar: voltar à lista.",
-                  "How is the translation stored?\n\nYes: language folder (for example, i18n/pt/).\nNo: language file (for example, i18n/pt.json).\nCancel: return to the list."),
-                T("Escolher formato da tradução", "Choose translation format"), MessageBoxButtons.YesNoCancel,
-                MessageBoxIcon.Question, folderStyle ? MessageBoxDefaultButton.Button1 : MessageBoxDefaultButton.Button2);
+            var chooseFolder = ChooseTranslationSource(folderStyle);
             if (chooseFolder == DialogResult.Cancel) return;
             if (chooseFolder == DialogResult.Yes)
             {
@@ -692,6 +733,38 @@ internal sealed class MainForm : Form
         {
             MessageBox.Show(this, ex.Message, T("Não foi possível importar", "Could not import"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+    }
+
+    private DialogResult ChooseTranslationSource(bool folderStyle)
+    {
+        using var dialog = new Form
+        {
+            Text = T("Localizar tradução", "Find translation"),
+            ClientSize = new Size(560, 174),
+            StartPosition = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            ShowInTaskbar = false,
+            Font = new Font("Segoe UI", 10),
+            BackColor = Color.FromArgb(10, 31, 53),
+            ForeColor = Color.White
+        };
+        var explanation = new Label
+        {
+            Text = T("Escolha onde está a tradução deste mod.\nO navegador começará na pasta i18n do mod, se ela existir.",
+                "Choose where this mod's translation is stored.\nThe browser will start in the mod's i18n folder when available."),
+            Location = new Point(22, 22),
+            Size = new Size(516, 65),
+            ForeColor = Color.FromArgb(194, 239, 235)
+        };
+        var file = new GlowButton { Text = T("Escolher arquivo JSON", "Choose JSON file"), Location = new Point(22, 108), Size = new Size(190, 40), DialogResult = DialogResult.No };
+        var folder = new GlowButton { Text = T("Escolher pasta do idioma", "Choose language folder"), Location = new Point(218, 108), Size = new Size(202, 40), DialogResult = DialogResult.Yes };
+        var cancel = new GlowButton { Text = T("Cancelar", "Cancel"), Location = new Point(426, 108), Size = new Size(112, 40), DialogResult = DialogResult.Cancel };
+        dialog.Controls.AddRange([explanation, file, folder, cancel]);
+        dialog.AcceptButton = folderStyle ? folder : file;
+        dialog.CancelButton = cancel;
+        return dialog.ShowDialog(this);
     }
 
     private void ImportDefaultForMod(InstalledMod mod, string sourcePath)

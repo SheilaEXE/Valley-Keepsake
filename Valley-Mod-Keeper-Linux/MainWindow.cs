@@ -21,6 +21,7 @@ internal sealed class MainWindow : Window
     private static string T(string pt, string en) => UiLanguage.Text(pt, en);
     private readonly TranslationService service = new();
     private readonly TextBox library = Field(FindInitialLibraryPath());
+    private readonly TextBox configLibrary = Field();
     private readonly TextBox mods = Field(FindInitialModsPath());
     private readonly TextBox search = Field();
     private readonly ComboBox interfaceLanguage = new() { ItemsSource = new[] { "Português (Brasil)", "English" }, SelectedIndex = UiLanguage.Portuguese ? 0 : 1, Width = 155 };
@@ -28,7 +29,8 @@ internal sealed class MainWindow : Window
     private readonly TextBlock summary = new() { Foreground = Brush("#AEE0E7"), VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock subtitle = new() { Foreground = Brush("#AEE0E7") };
     private readonly DataGrid grid = new() { AutoGenerateColumns = false, HeadersVisibility = DataGridHeadersVisibility.Column, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, Background = Brush("#103148"), Foreground = Brushes.White, BorderBrush = Brush("#1A617D") };
-    private TextBlock? libraryLabel, modsLabel, searchLabel, interfaceLabel, localeLabel;
+    private TextBlock? libraryLabel, configLibraryLabel, modsLabel, searchLabel, interfaceLabel, localeLabel;
+    private bool configLibraryCustomized = ConfigBackupService.LoadSelectedStorageRoot() is not null;
     private Button? analyzeButton, prepareButton, configsButton, applyButton, undoButton;
     private readonly ObservableCollection<Row> rows = [];
     private List<MatchResult> results = [];
@@ -51,16 +53,20 @@ internal sealed class MainWindow : Window
             subtitle
         }});
 
-        var fields = new Grid { Margin = new Thickness(0, 18, 0, 12), Background = Brush("#133A53"), ColumnDefinitions = new ColumnDefinitions("205,*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto") };
+        var fields = new Grid { Margin = new Thickness(0, 18, 0, 12), Background = Brush("#133A53"), ColumnDefinitions = new ColumnDefinitions("205,*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,Auto") };
         libraryLabel = AddFolderField(fields, 0, "Biblioteca de traduções:", library, "Escolha sua biblioteca de traduções");
-        modsLabel = AddFolderField(fields, 1, "Pasta Mods do Stardew:", mods, "Escolha a pasta Mods do Stardew Valley");
-        searchLabel = AddField(fields, 2, "Pesquisar na lista:", search);
+        configLibrary.Text = ConfigBackupService.LoadSelectedStorageRoot() ?? ConfigBackupService.DefaultStorageRoot(library.Text!);
+        library.TextChanged += (_, _) => { if (!configLibraryCustomized) configLibrary.Text = ConfigBackupService.DefaultStorageRoot(library.Text!); };
+        configLibrary.LostFocus += (_, _) => SaveConfigLibraryPath();
+        configLibraryLabel = AddFolderField(fields, 1, "Biblioteca de configurações:", configLibrary, "Escolha sua biblioteca de configurações");
+        modsLabel = AddFolderField(fields, 2, "Pasta Mods do Stardew:", mods, "Escolha a pasta Mods do Stardew Valley");
+        searchLabel = AddField(fields, 3, "Pesquisar na lista:", search);
         search.Watermark = "Digite o nome do mod, tradução ou UniqueID…";
         search.TextChanged += (_, _) => RefreshRows();
         var languageRow = new Grid { ColumnDefinitions = new ColumnDefinitions("205,180,205,160,*") };
         interfaceLabel = AddChoice(languageRow, 0, "Interface:", interfaceLanguage);
         localeLabel = AddChoice(languageRow, 0, "Idioma da tradução:", locale, 2, 3);
-        Grid.SetRow(languageRow, 3);
+        Grid.SetRow(languageRow, 4);
         Grid.SetColumnSpan(languageRow, 3);
         fields.Children.Add(languageRow);
         interfaceLanguage.SelectionChanged += (_, _) => { UiLanguage.Set(interfaceLanguage.SelectedIndex == 0); ApplyInterfaceLanguage(); RefreshRows(); };
@@ -98,6 +104,7 @@ internal sealed class MainWindow : Window
     {
         subtitle.Text = T("Transfira traduções com segurança e preserve configurações dos mods.", "Safely transfer translations and save mod settings.");
         if (libraryLabel is not null) libraryLabel.Text = T("Biblioteca de traduções:", "Translation library:");
+        if (configLibraryLabel is not null) configLibraryLabel.Text = T("Biblioteca de configurações:", "Settings library:");
         if (modsLabel is not null) modsLabel.Text = T("Pasta Mods do Stardew:", "Stardew Mods folder:");
         if (searchLabel is not null) searchLabel.Text = T("Pesquisar na lista:", "Search list:");
         if (interfaceLabel is not null) interfaceLabel.Text = "Interface:";
@@ -120,7 +127,7 @@ internal sealed class MainWindow : Window
 
     private async void Analyze(object? sender, RoutedEventArgs e)
     {
-        if (!Directory.Exists(library.Text) || !Directory.Exists(mods.Text)) { summary.Text = T("Escolha duas pastas existentes.", "Choose two existing folders."); return; }
+        if (!Directory.Exists(library.Text) || !Directory.Exists(mods.Text)) { summary.Text = T("Para analisar traduções, escolha a biblioteca de traduções e a pasta Mods.", "To analyze translations, choose the translation library and Mods folder."); return; }
         try
         {
             installed = service.ScanMods(mods.Text!);
@@ -156,12 +163,25 @@ internal sealed class MainWindow : Window
 
     private async void OpenConfigBackup(object? sender, RoutedEventArgs e)
     {
-        if (!Directory.Exists(library.Text) || !Directory.Exists(mods.Text))
+        if (!Directory.Exists(mods.Text))
         {
-            summary.Text = "Escolha duas pastas existentes antes de abrir o backup de configurações.";
+            summary.Text = T("Escolha uma pasta Mods existente antes de abrir o backup de configurações.", "Choose an existing Mods folder before opening settings backup.");
             return;
         }
-        var window = new ConfigWindow(library.Text!, mods.Text!, service);
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(configLibrary.Text) && !Directory.Exists(configLibrary.Text) &&
+                Path.GetFullPath(configLibrary.Text).Equals(Path.GetFullPath(ConfigBackupService.DefaultStorageRoot(library.Text!)), StringComparison.OrdinalIgnoreCase))
+                Directory.CreateDirectory(configLibrary.Text);
+        }
+        catch (Exception ex) { summary.Text = T("Não foi possível abrir a biblioteca de configurações: ", "Could not open settings library: ") + ex.Message; return; }
+        if (!Directory.Exists(configLibrary.Text))
+        {
+            summary.Text = T("Escolha uma pasta existente para a biblioteca de configurações.", "Choose an existing settings library folder.");
+            return;
+        }
+        SaveConfigLibraryPath();
+        var window = new ConfigWindow(configLibrary.Text!, mods.Text!, service);
         await window.ShowDialog(this);
     }
 
@@ -208,7 +228,7 @@ internal sealed class MainWindow : Window
         }
         var safe = results.Count(x => x.Translation.Locale == SelectedLocale && x.State == MatchState.Safe);
         var existing = results.Count(x => x.Translation.Locale == SelectedLocale && x.State == MatchState.AlreadyTranslated);
-        summary.Text = results.Count == 0 ? T("Escolha as duas pastas para começar.", "Choose the two folders to begin.")
+        summary.Text = results.Count == 0 ? T("Para analisar traduções, escolha a biblioteca de traduções e a pasta Mods.", "To analyze translations, choose the translation library and Mods folder.")
             : T($"{installed.Count} mods • {safe} prontas • {existing} já traduzidas • {rows.Count} linhas exibidas",
                 $"{installed.Count} mods • {safe} ready • {existing} already translated • {rows.Count} rows shown");
     }
@@ -393,14 +413,14 @@ internal sealed class MainWindow : Window
 
     private async Task<int> ChooseImportKindAsync()
     {
-        var dialog = DialogWindow("Formato da tradução", 580, 230);
+        var dialog = DialogWindow(T("Localizar tradução", "Find translation"), 620, 230);
         var panel = new StackPanel { Margin = new Thickness(20), Spacing = 16 };
-        panel.Children.Add(new TextBlock { Text = "A tradução está em uma pasta (i18n/pt/) ou em um arquivo (i18n/pt.json)?", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.White });
+        panel.Children.Add(new TextBlock { Text = T("Escolha onde está a tradução deste mod.\nO navegador começará na pasta i18n do mod, se ela existir.", "Choose where this mod's translation is stored.\nThe browser will start in the mod's i18n folder when available."), TextWrapping = TextWrapping.Wrap, Foreground = Brushes.White });
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        var folder = Button("Pasta inteira", "#286A58"); folder.Click += (_, _) => dialog.Close(1);
-        var file = Button("Arquivo JSON", "#1A617D"); file.Click += (_, _) => dialog.Close(2);
-        var cancel = Button("Cancelar", "#685BA6"); cancel.Click += (_, _) => dialog.Close(0);
-        buttons.Children.Add(folder); buttons.Children.Add(file); buttons.Children.Add(cancel);
+        var file = Button(T("Escolher arquivo JSON", "Choose JSON file"), "#1A617D"); file.Click += (_, _) => dialog.Close(2);
+        var folder = Button(T("Escolher pasta do idioma", "Choose language folder"), "#286A58"); folder.Click += (_, _) => dialog.Close(1);
+        var cancel = Button(T("Cancelar", "Cancel"), "#685BA6"); cancel.Click += (_, _) => dialog.Close(0);
+        buttons.Children.Add(file); buttons.Children.Add(folder); buttons.Children.Add(cancel);
         panel.Children.Add(buttons); dialog.Content = panel;
         return await dialog.ShowDialog<int>(this);
     }
@@ -448,7 +468,17 @@ internal sealed class MainWindow : Window
         });
 
         if (chosen.Count > 0)
+        {
             field.Text = chosen[0].Path.LocalPath;
+            if (ReferenceEquals(field, configLibrary)) SaveConfigLibraryPath();
+        }
+    }
+
+    private void SaveConfigLibraryPath()
+    {
+        if (!Directory.Exists(configLibrary.Text)) return;
+        try { ConfigBackupService.SaveSelectedStorageRoot(configLibrary.Text!); configLibraryCustomized = true; }
+        catch (Exception ex) { summary.Text = T("Não foi possível salvar o caminho: ", "Could not save folder path: ") + ex.Message; }
     }
 
     private void LoadSavedMappings()

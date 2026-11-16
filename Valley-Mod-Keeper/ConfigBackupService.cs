@@ -8,10 +8,31 @@ internal sealed class ConfigBackupService
     private static string T(string pt, string en) => UiLanguage.Text(pt, en);
     private const string ConfigFolderName = "Configurações dos Mods";
     private const string MetadataFileName = "informacoes.json";
+    private static readonly string LibraryPathSetting = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "TradutorModsStardew", "config-library-path.txt");
 
     private sealed record StoredConfigInfo(string UniqueId, string DisplayName, DateTimeOffset ExportedAt);
 
-    public string GetStorageRoot(string libraryRoot) => Path.Combine(libraryRoot, ConfigFolderName);
+    public static string DefaultStorageRoot(string translationLibraryRoot) => Path.Combine(translationLibraryRoot, ConfigFolderName);
+
+    public string GetStorageRoot(string configLibraryRoot) => configLibraryRoot;
+
+    public static string? LoadSelectedStorageRoot()
+    {
+        try
+        {
+            var path = File.ReadAllText(LibraryPathSetting).Trim();
+            return Path.IsPathFullyQualified(path) ? path : null;
+        }
+        catch { return null; }
+    }
+
+    public static void SaveSelectedStorageRoot(string path)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(LibraryPathSetting)!);
+        File.WriteAllText(LibraryPathSetting, Path.GetFullPath(path));
+    }
 
     public List<ConfigResult> Compare(string libraryRoot, IEnumerable<InstalledMod> mods)
     {

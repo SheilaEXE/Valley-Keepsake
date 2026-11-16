@@ -4,11 +4,11 @@ Valley Modkeeper helps Stardew Valley players keep their mod translations and se
 
 ## Quick start
 
-1. Create a folder for your translation library somewhere **outside** the game's `Mods` folder. The app will also store your settings backups inside this library.
-2. In Valley Modkeeper, select that folder under **Translation library**, then select your Stardew Valley **Mods folder** and the language of the translations you want to save.
+1. Create a folder for your translation library somewhere **outside** the game's `Mods` folder. Choose a folder for settings backups too; it may be inside the translation library or elsewhere.
+2. In Valley Modkeeper, select those folders under **Translation library** and **Settings library**, then select your Stardew Valley **Mods folder** and the language of the translations you want to save. On first use, Settings library points to the original `Translation library/Configurações dos Mods` folder; changing it does not move existing backups.
 3. Click **Find new mods**. The app scans installed mods and copies translations it finds in your selected language into your library. This does not change the installed mods or download missing translations.
 4. To save your settings too, open **Settings backup** and click **Back up all configs** on Windows or **Export all settings** on Linux. This is a separate step from **Find new mods**.
-5. After updating or reinstalling a mod, click **Analyze**, review any uncertain matches, and use **Apply selected** to transfer saved translations back. Open **Settings backup** to restore a saved `config.json` for an installed mod.
+5. After updating or reinstalling a mod, click **Analyze**, review any uncertain matches, and use **Apply selected** to transfer saved translations back. Open **Settings backup** to restore selected configs or all missing and changed configs at once.
 
 The app preserves translations already present in your Mods folder. It asks you to review uncertain destinations instead of guessing.
 

@@ -53,6 +53,7 @@ internal sealed class TranslationService
             var locale = TranslationLocales.FromFileName(fileName);
             if (locale is null) continue;
             var component = Directory.GetParent(i18n)!;
+            if (Path.GetFullPath(component.FullName).Equals(Path.GetFullPath(libraryRoot), StringComparison.OrdinalIgnoreCase)) continue;
             var package = FirstPart(libraryRoot, component.FullName);
             units.Add(new TranslationUnit(package, component.Name, file,
                 Path.Combine("i18n", fileName), false, Path.GetRelativePath(libraryRoot, component.FullName), Locale: TranslationLocales.SelectionGroup(locale)));
@@ -66,6 +67,7 @@ internal sealed class TranslationService
                 var localeFolder = TranslationLocales.Normalize(Path.GetFileName(dir));
                 if (localeFolder is null || !ContainsJson(dir)) continue;
                 var component = parent.Parent!;
+                if (Path.GetFullPath(component.FullName).Equals(Path.GetFullPath(libraryRoot), StringComparison.OrdinalIgnoreCase)) continue;
                 var packageFolder = FirstPart(libraryRoot, component.FullName);
                 units.Add(new TranslationUnit(packageFolder, component.Name, dir,
                     Path.Combine("i18n", Path.GetFileName(dir)), true,
@@ -87,6 +89,7 @@ internal sealed class TranslationService
             var locale = TranslationLocales.FromFileName(file);
             if (locale is null) continue;
             var component = Directory.GetParent(file)!;
+            if (Path.GetFullPath(component.FullName).Equals(Path.GetFullPath(libraryRoot), StringComparison.OrdinalIgnoreCase)) continue;
             var package = FirstPart(libraryRoot, component.FullName);
             units.Add(new TranslationUnit(package, component.Name, file,
                 "content.json", false, Path.GetRelativePath(libraryRoot, component.FullName), true, TranslationLocales.SelectionGroup(locale)));

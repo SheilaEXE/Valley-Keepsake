@@ -24,22 +24,30 @@ internal sealed class ConfigBackupForm : Form
         Font = new Font("Segoe UI", 10);
         BackColor = Color.FromArgb(10, 31, 53);
 
-        var title = new Label { Dock = DockStyle.Top, Height = 68, Padding = new Padding(18, 14, 18, 0), Text = T("Backup de configurações dos mods\nSalve seus config.json antes de atualizar. Na restauração, cada mod pede confirmação e a versão atual é guardada.", "Mod settings backup\nSave config.json files before updating. Each restore asks for confirmation and backs up the current file."), Font = new Font("Segoe UI", 11), ForeColor = Color.FromArgb(194, 239, 235) };
+        var title = new Label { Dock = DockStyle.Top, Height = 68, Padding = new Padding(18, 14, 18, 0), Text = T("Backup de configurações dos mods\nSalve seus config.json antes de atualizar. A versão atual é guardada antes de cada restauração.", "Mod settings backup\nSave config.json files before updating. Current settings are backed up before each restore."), Font = new Font("Segoe UI", 11), ForeColor = Color.FromArgb(194, 239, 235) };
         ConfigureGrid();
         var export = new GlowButton { Text = T("Exportar todos os configs", "Back up all configs"), AccentColor = Color.FromArgb(108, 224, 230), AutoSize = true };
         var import = new GlowButton { Text = T("Restaurar selecionados", "Restore selected"), AccentColor = Color.FromArgb(161, 232, 74), AutoSize = true };
+        var restoreAll = new GlowButton { Text = T("Restaurar tudo", "Restore all"), AccentColor = Color.FromArgb(161, 232, 74), AutoSize = true };
         var refresh = new GlowButton { Text = T("Procurar novas configs", "Find new configs"), AccentColor = Color.FromArgb(130, 114, 210), AutoSize = true };
         tips.SetToolTip(export, T("Guarda uma cópia dos config.json dos mods na biblioteca.", "Saves copies of the mods' config.json files in the library."));
         tips.SetToolTip(import, T("Restaura os configs marcados, pedindo confirmação para cada mod.", "Restores checked configs, asking for confirmation for each mod."));
+        tips.SetToolTip(restoreAll, T("Restaura todos os configs ausentes ou diferentes, com uma confirmação única. Os arquivos atuais substituídos são guardados antes.", "Restores all missing or different configs with one confirmation. Existing files are backed up first."));
         tips.SetToolTip(refresh, T("Procura config.json novos nos mods e atualiza a lista; não cria backup automaticamente.", "Finds new mod config.json files and refreshes the list; it does not create backups automatically."));
         export.Click += (_, _) => ExportAll();
         import.Click += (_, _) => RestoreSelected();
+        restoreAll.Click += (_, _) => RestoreAll();
         refresh.Click += (_, _) => LoadResults();
-        var actions = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 68, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(18, 14, 18, 10), BackColor = BackColor };
-        actions.Controls.Add(import); actions.Controls.Add(export); actions.Controls.Add(refresh);
+        var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(18, 6, 18, 8), BackColor = BackColor };
+        actions.Controls.Add(restoreAll); actions.Controls.Add(import); actions.Controls.Add(export); actions.Controls.Add(refresh);
         summary.ForeColor = Color.FromArgb(174, 223, 231);
-        summary.Location = new Point(20, 24); actions.Controls.Add(summary);
-        Controls.Add(grid); Controls.Add(actions); Controls.Add(title);
+        summary.Dock = DockStyle.Top;
+        summary.Padding = new Padding(20, 5, 0, 0);
+        summary.AutoSize = false;
+        summary.Height = 28;
+        var footer = new Panel { Dock = DockStyle.Bottom, Height = 82, BackColor = BackColor };
+        footer.Controls.Add(actions); footer.Controls.Add(summary);
+        Controls.Add(grid); Controls.Add(footer); Controls.Add(title);
         LoadResults();
     }
 
@@ -116,6 +124,37 @@ internal sealed class ConfigBackupForm : Form
         }
         LoadResults();
         if (restored > 0) MessageBox.Show(this, string.Format(T("{0} configuração(ões) restaurada(s).", "{0} configuration(s) restored."), restored), T("Concluído", "Done"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private void RestoreAll()
+    {
+        LoadResults();
+        var pending = results.Where(x => x.State == ConfigState.ReadyToRestore).ToList();
+        if (pending.Count == 0)
+        {
+            MessageBox.Show(this, T("Não há configurações diferentes ou ausentes para restaurar.", "There are no missing or different settings to restore."), T("Nada para restaurar", "Nothing to restore"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var existing = pending.Count(x => File.Exists(Path.Combine(x.Mod.Directory, "config.json")));
+        var answer = MessageBox.Show(this,
+            string.Format(T("Restaurar {0} configuração(ões) salva(s)?\n\n{1} arquivo(s) atual(is) diferente(s) serão guardados em backup datado antes da substituição. Os demais configs ausentes serão criados.",
+                "Restore {0} saved configuration(s)?\n\n{1} different existing file(s) will be saved in a dated backup before replacement. Missing configs will be created."), pending.Count, existing),
+            T("Confirmar restauração de tudo", "Confirm restore all"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        if (answer != DialogResult.Yes) return;
+
+        var restored = 0;
+        var failures = new List<string>();
+        foreach (var result in pending)
+        {
+            try { configService.Restore(libraryRoot, result); restored++; }
+            catch (Exception ex) { failures.Add($"{result.Mod.DisplayName}: {ex.Message}"); }
+        }
+        LoadResults();
+        var message = string.Format(T("{0} configuração(ões) restaurada(s). {1} falha(s).", "{0} configuration(s) restored. {1} failure(s)."), restored, failures.Count);
+        if (failures.Count > 0) message += "\n\n" + string.Join("\n", failures.Take(10));
+        MessageBox.Show(this, message, T("Restauração concluída", "Restore complete"), MessageBoxButtons.OK,
+            failures.Count > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
     }
 
     private static string StatusText(ConfigState state) => state switch
