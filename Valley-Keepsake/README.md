@@ -1,4 +1,4 @@
-# Valley Modkeeper
+# Valley Keepsake
 
 Aplicativo visual para localizar traduções em vários idiomas numa biblioteca pessoal, aplicá-las aos mods instalados e preservar configurações antes de atualizar mods.
 

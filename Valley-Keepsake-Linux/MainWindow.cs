@@ -41,7 +41,7 @@ internal sealed class MainWindow : Window
 
     public MainWindow()
     {
-        Title = "Valley Modkeeper";
+        Title = "Valley Keepsake";
         Icon = new WindowIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "app.png"));
         Width = 1180; Height = 740; MinWidth = 900; MinHeight = 600;
         Background = Brush("#0A1F35");
@@ -49,7 +49,7 @@ internal sealed class MainWindow : Window
 
         root.Children.Add(new StackPanel { Spacing = 4, Children =
         {
-            new TextBlock { Text = "Valley Modkeeper", FontSize = 23, FontWeight = FontWeight.Bold, Foreground = Brush("#A1E84A") },
+            new TextBlock { Text = "Valley Keepsake", FontSize = 23, FontWeight = FontWeight.Bold, Foreground = Brush("#A1E84A") },
             subtitle
         }});
 

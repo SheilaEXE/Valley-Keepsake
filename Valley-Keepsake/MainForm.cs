@@ -43,7 +43,7 @@ internal sealed class MainForm : Form
 
     public MainForm()
     {
-        Text = "Valley Modkeeper";
+        Text = "Valley Keepsake";
         var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico");
         if (File.Exists(iconPath))
         {
@@ -58,7 +58,7 @@ internal sealed class MainForm : Form
 
         var title = new Label
         {
-            Text = "Valley Modkeeper",
+            Text = "Valley Keepsake",
             Font = LoadTitleFont(),
             AutoSize = true,
             ForeColor = Color.FromArgb(161, 232, 74),
@@ -854,7 +854,7 @@ internal sealed class MainForm : Form
     {
         var reportDir = Path.Combine(AppDataDirectory(), "Relatorios");
         Directory.CreateDirectory(reportDir);
-        var lines = new List<string> { T("Valley Modkeeper — relatório", "Valley Modkeeper — report"), DateTime.Now.ToString("F"), "" };
+        var lines = new List<string> { T("Valley Keepsake — relatório", "Valley Keepsake — report"), DateTime.Now.ToString("F"), "" };
         lines.AddRange(results.Select(r => $"[{StatusText(r.State)}] {DisplayTranslation(r.Translation)} -> {DisplayTarget(r.Target)}: {r.Detail}"));
         File.WriteAllLines(Path.Combine(reportDir, DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss") + ".txt"), lines);
     }

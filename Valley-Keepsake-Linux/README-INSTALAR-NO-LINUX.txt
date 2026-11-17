@@ -1,4 +1,4 @@
-INSTALAR OU ATUALIZAR O VALLEY MODKEEPER NO LINUX X86-64
+INSTALAR OU ATUALIZAR O VALLEY KEEPSAKE NO LINUX X86-64
 
 Esta versao foi testada apenas no Steam Deck ate agora. Em outras distribuicoes
 Linux, confira os caminhos da biblioteca e da pasta Mods antes de usar.
@@ -10,7 +10,7 @@ Linux, confira os caminhos da biblioteca e da pasta Mods antes de usar.
 
    bash install.sh
 
-4. Depois abra "Valley Modkeeper" pelo menu de aplicativos. Um atalho na
+4. Depois abra "Valley Keepsake" pelo menu de aplicativos. Um atalho na
    Area de Trabalho tambem sera criado se essa pasta existir.
 
 O instalador atualiza a mesma pasta do aplicativo anterior. Nao precisa remover a

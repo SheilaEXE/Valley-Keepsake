@@ -10,7 +10,7 @@ internal sealed class App : Application
     public override void Initialize()
     {
         Styles.Add(new FluentTheme());
-        Styles.Add(new StyleInclude(new Uri("avares://TradutorModsDeck/"))
+        Styles.Add(new StyleInclude(new Uri("avares://ValleyKeepsake/"))
         {
             Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml")
         });

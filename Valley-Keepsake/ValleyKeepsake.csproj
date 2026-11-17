@@ -5,9 +5,9 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>ValleyModkeeper</AssemblyName>
-    <Product>Valley Modkeeper</Product>
-    <AssemblyTitle>Valley Modkeeper</AssemblyTitle>
+    <AssemblyName>ValleyKeepsake</AssemblyName>
+    <Product>Valley Keepsake</Product>
+    <AssemblyTitle>Valley Keepsake</AssemblyTitle>
     <RootNamespace>TradutorModsStardew</RootNamespace>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
