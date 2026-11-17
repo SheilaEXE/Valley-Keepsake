@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>ValleyKeepsake</AssemblyName>
+    <Product>Valley Keepsake</Product>
+    <AssemblyTitle>Valley Keepsake</AssemblyTitle>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.2.3" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
+    <Compile Include="..\Valley-Keepsake-Linux\App.cs" Link="App.cs" />
+    <Compile Include="..\Valley-Keepsake-Linux\ConfigWindow.cs" Link="ConfigWindow.cs" />
+    <Compile Include="..\Valley-Keepsake-Linux\MainWindow.cs" Link="MainWindow.cs" />
+    <Compile Include="..\Valley-Keepsake-Linux\Program.cs" Link="Program.cs" />
+    <Compile Include="..\Valley-Keepsake\Models.cs" Link="Models.cs" />
+    <Compile Include="..\Valley-Keepsake\TranslationService.cs" Link="TranslationService.cs" />
+    <Compile Include="..\Valley-Keepsake\TranslationLocales.cs" Link="TranslationLocales.cs" />
+    <Compile Include="..\Valley-Keepsake\UiLanguage.cs" Link="UiLanguage.cs" />
+    <Compile Include="..\Valley-Keepsake\ConfigBackupService.cs" Link="ConfigBackupService.cs" />
+    <None Include="..\Valley-Keepsake-Linux\Assets\app.png" Link="Assets\app.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

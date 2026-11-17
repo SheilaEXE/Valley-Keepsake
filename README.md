@@ -16,6 +16,7 @@ The app preserves translations already present in your Mods folder. It asks you 
 
 - The Linux x86-64 version has **only been tested on Steam Deck**; other Linux distributions are not yet verified.
 - The Windows x86 (32-bit) package is experimental and has not yet been tested on a 32-bit Windows installation.
+- The macOS Apple Silicon and Intel packages are **experimental and untested on a Mac**. They target macOS 14 or newer and are not notarized by Apple.
 - The app interface is currently available in **English and Brazilian Portuguese**. You can choose the translation language independently of the interface language.
 
 ## Download and install
@@ -25,6 +26,7 @@ Download the ready-to-use ZIP for your operating system from the [latest release
 - **Windows x64 (PC):** extract the Windows x64 ZIP and open `ValleyKeepsake.exe`.
 - **Windows x86 (32-bit, experimental):** extract the Windows x86 ZIP and open `ValleyKeepsake.exe`. The 32-bit package has not yet been tested on a 32-bit Windows installation.
 - **Linux x86-64 (including Steam Deck):** extract the Linux ZIP and run `bash install.sh` from the extracted folder. Open Valley Keepsake from your applications menu; a desktop shortcut is also created if a desktop folder exists. Installation is per-user and does not require `sudo`.
+- **macOS Apple Silicon or Intel (experimental):** choose the ZIP for your Mac's chip, extract it, and move `Valley Keepsake.app` to Applications. Read `README-MAC.txt` in the ZIP. The app includes .NET but has not been tested on a Mac. Because it is not notarized, macOS may block its first launch; [Apple explains the per-app Open Anyway option](https://support.apple.com/en-us/102445). Do not disable Gatekeeper system-wide.
 
 If upgrading from Valley Modkeeper on Windows, extract Valley Keepsake into a new folder and launch the new executable. The Linux installer replaces the old app launcher and keeps your saved libraries.
 

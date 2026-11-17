@@ -1,0 +1,31 @@
+name: Build experimental macOS packages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: osx-arm64
+            label: Apple-Silicon
+          - rid: osx-x64
+            label: Intel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build, package, and validate
+        run: bash Valley-Keepsake-Mac/package-macos.sh "${{ matrix.rid }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Valley-Keepsake-v1.0.0-macOS-${{ matrix.label }}-EXPERIMENTAL
+          path: Valley-Keepsake-v1.0.0-macOS-${{ matrix.label }}-EXPERIMENTAL.zip
+          if-no-files-found: error

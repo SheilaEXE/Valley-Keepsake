@@ -304,7 +304,7 @@ internal sealed class MainWindow : Window
             var path = result.Translation.SourcePath;
             var folder = Directory.Exists(path) ? path : Path.GetDirectoryName(path);
             if (folder is not null && Directory.Exists(folder))
-                Process.Start(new ProcessStartInfo("xdg-open", folder) { UseShellExecute = false });
+                Process.Start(new ProcessStartInfo(OperatingSystem.IsMacOS() ? "open" : "xdg-open", folder) { UseShellExecute = false });
         };
         top.Children.Add(open);
         top.Children.Add(new TextBlock { Text = "Escolha pelo caminho completo e UniqueID:", Foreground = Brushes.White });
@@ -560,6 +560,11 @@ internal sealed class MainWindow : Window
     private static string FindInitialLibraryPath()
     {
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (OperatingSystem.IsMacOS())
+        {
+            var macDefault = Path.Combine(home, "Documents", "Valley Keepsake", "Translations");
+            return macDefault;
+        }
         var candidates = new[]
         {
             Path.Combine(home, "Traduções PT-BR Stardew Valley"),
@@ -573,6 +578,15 @@ internal sealed class MainWindow : Window
     private static string FindInitialModsPath()
     {
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (OperatingSystem.IsMacOS())
+        {
+            var macCandidates = new[]
+            {
+                Path.Combine(home, "Library", "Application Support", "Steam", "steamapps", "common", "Stardew Valley", "Contents", "MacOS", "Mods"),
+                Path.Combine(home, "Library", "Application Support", "Steam", "SteamApps", "common", "Stardew Valley", "Contents", "MacOS", "Mods")
+            };
+            return macCandidates.FirstOrDefault(Directory.Exists) ?? macCandidates[0];
+        }
         var candidates = new[]
         {
             Path.Combine(home, ".local", "share", "Steam", "steamapps", "common", "Stardew Valley", "Mods"),
