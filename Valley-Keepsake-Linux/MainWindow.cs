@@ -42,7 +42,9 @@ internal sealed class MainWindow : Window
     public MainWindow()
     {
         Title = "Valley Keepsake";
-        Icon = new WindowIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "app.png"));
+        Icon = new WindowIcon(OperatingSystem.IsMacOS()
+            ? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "Resources", "Assets", "app.png"))
+            : Path.Combine(AppContext.BaseDirectory, "Assets", "app.png"));
         Width = 1180; Height = 740; MinWidth = 900; MinHeight = 600;
         Background = Brush("#0A1F35");
         var root = new Grid { Margin = new Thickness(22), RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto") };

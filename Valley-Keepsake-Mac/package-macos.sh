@@ -22,6 +22,9 @@ dotnet publish "$repo_root/Valley-Keepsake-Mac/ValleyKeepsake.Mac.csproj" \
   --output "$publish_dir" --nologo
 
 cp -R "$publish_dir"/. "$app_dir/Contents/MacOS/"
+mkdir -p "$app_dir/Contents/Resources/Assets"
+mv "$app_dir/Contents/MacOS/Assets/app.png" "$app_dir/Contents/Resources/Assets/app.png"
+rmdir "$app_dir/Contents/MacOS/Assets"
 rm -f "$app_dir/Contents/MacOS"/*.pdb
 chmod +x "$app_dir/Contents/MacOS/ValleyKeepsake"
 cp "$repo_root/Valley-Keepsake-Mac/Info.plist" "$app_dir/Contents/Info.plist"
