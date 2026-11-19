@@ -20,7 +20,7 @@ internal sealed class MainWindow : Window
 {
     private static string T(string pt, string en) => UiLanguage.Text(pt, en);
     private readonly TranslationService service = new();
-    private readonly TextBox library = Field(FindInitialLibraryPath());
+    private readonly TextBox library = Field();
     private readonly TextBox configLibrary = Field();
     private readonly TextBox mods = Field(FindInitialModsPath());
     private readonly TextBox search = Field();
@@ -30,7 +30,6 @@ internal sealed class MainWindow : Window
     private readonly TextBlock subtitle = new() { Foreground = Brush("#AEE0E7") };
     private readonly DataGrid grid = new() { AutoGenerateColumns = false, HeadersVisibility = DataGridHeadersVisibility.Column, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, Background = Brush("#103148"), Foreground = Brushes.White, BorderBrush = Brush("#1A617D") };
     private TextBlock? libraryLabel, configLibraryLabel, modsLabel, searchLabel, interfaceLabel, localeLabel;
-    private bool configLibraryCustomized = ConfigBackupService.LoadSelectedStorageRoot() is not null;
     private Button? analyzeButton, prepareButton, configsButton, applyButton, undoButton;
     private readonly ObservableCollection<Row> rows = [];
     private List<MatchResult> results = [];
@@ -47,6 +46,12 @@ internal sealed class MainWindow : Window
             : Path.Combine(AppContext.BaseDirectory, "Assets", "app.png"));
         Width = 1180; Height = 740; MinWidth = 900; MinHeight = 600;
         Background = Brush("#0A1F35");
+        var savedLibraries = LibrarySelectionStore.Load();
+        library.Text = savedLibraries.Translation;
+        configLibrary.Text = savedLibraries.Configuration;
+        library.LostFocus += (_, _) => SaveLibraries();
+        configLibrary.LostFocus += (_, _) => SaveLibraries();
+        Closing += (_, _) => SaveLibraries();
         var root = new Grid { Margin = new Thickness(22), RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto") };
 
         root.Children.Add(new StackPanel { Spacing = 4, Children =
@@ -57,9 +62,6 @@ internal sealed class MainWindow : Window
 
         var fields = new Grid { Margin = new Thickness(0, 18, 0, 12), Background = Brush("#133A53"), ColumnDefinitions = new ColumnDefinitions("205,*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,Auto") };
         libraryLabel = AddFolderField(fields, 0, "Biblioteca de traduções:", library, "Escolha sua biblioteca de traduções");
-        configLibrary.Text = ConfigBackupService.LoadSelectedStorageRoot() ?? ConfigBackupService.DefaultStorageRoot(library.Text!);
-        library.TextChanged += (_, _) => { if (!configLibraryCustomized) configLibrary.Text = ConfigBackupService.DefaultStorageRoot(library.Text!); };
-        configLibrary.LostFocus += (_, _) => SaveConfigLibraryPath();
         configLibraryLabel = AddFolderField(fields, 1, "Biblioteca de configurações:", configLibrary, "Escolha sua biblioteca de configurações");
         modsLabel = AddFolderField(fields, 2, "Pasta Mods do Stardew:", mods, "Escolha a pasta Mods do Stardew Valley");
         searchLabel = AddField(fields, 3, "Pesquisar na lista:", search);
@@ -182,7 +184,6 @@ internal sealed class MainWindow : Window
             summary.Text = T("Escolha uma pasta existente para a biblioteca de configurações.", "Choose an existing settings library folder.");
             return;
         }
-        SaveConfigLibraryPath();
         var window = new ConfigWindow(configLibrary.Text!, mods.Text!, service);
         await window.ShowDialog(this);
     }
@@ -472,15 +473,14 @@ internal sealed class MainWindow : Window
         if (chosen.Count > 0)
         {
             field.Text = chosen[0].Path.LocalPath;
-            if (ReferenceEquals(field, configLibrary)) SaveConfigLibraryPath();
+            if (ReferenceEquals(field, library) || ReferenceEquals(field, configLibrary)) SaveLibraries();
         }
     }
 
-    private void SaveConfigLibraryPath()
+    private void SaveLibraries()
     {
-        if (!Directory.Exists(configLibrary.Text)) return;
-        try { ConfigBackupService.SaveSelectedStorageRoot(configLibrary.Text!); configLibraryCustomized = true; }
-        catch (Exception ex) { summary.Text = T("Não foi possível salvar o caminho: ", "Could not save folder path: ") + ex.Message; }
+        try { LibrarySelectionStore.Save(library.Text, configLibrary.Text); }
+        catch (Exception ex) { summary.Text = T("Não foi possível salvar as bibliotecas: ", "Could not save library folders: ") + ex.Message; }
     }
 
     private void LoadSavedMappings()
@@ -557,24 +557,6 @@ internal sealed class MainWindow : Window
         Grid.SetRow(text, row); Grid.SetRow(choice, row); Grid.SetColumn(text, labelColumn); Grid.SetColumn(choice, choiceColumn);
         grid.Children.Add(text); grid.Children.Add(choice);
         return text;
-    }
-
-    private static string FindInitialLibraryPath()
-    {
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (OperatingSystem.IsMacOS())
-        {
-            var macDefault = Path.Combine(home, "Documents", "Valley Keepsake", "Translations");
-            return macDefault;
-        }
-        var candidates = new[]
-        {
-            Path.Combine(home, "Traduções PT-BR Stardew Valley"),
-            Path.Combine(home, "Traducoes PT-BR Stardew Valley"),
-            Path.Combine(home, "Documents", "Traduções PT-BR Stardew Valley"),
-            Path.Combine(home, "Documents", "Traducoes PT-BR Stardew Valley")
-        };
-        return candidates.FirstOrDefault(Directory.Exists) ?? candidates[0];
     }
 
     private static string FindInitialModsPath()

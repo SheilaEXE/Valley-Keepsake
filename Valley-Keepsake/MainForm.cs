@@ -39,7 +39,6 @@ internal sealed class MainForm : Form
     private bool populatingGrid;
     private List<ApplyRecord> lastApply = [];
     private string? lastBackup;
-    private bool configLibraryCustomized = ConfigBackupService.LoadSelectedStorageRoot() is not null;
 
     public MainForm()
     {
@@ -82,13 +81,12 @@ internal sealed class MainForm : Form
         paths.Controls.Add(searchLabel, 0, 3);
         searchBox.Margin = new Padding(0, 5, 8, 5);
         paths.Controls.Add(searchBox, 1, 3);
-        libraryBox.Text = @"D:\Traduções PT-BR Stardew Valley";
-        configLibraryBox.Text = ConfigBackupService.LoadSelectedStorageRoot() ?? ConfigBackupService.DefaultStorageRoot(libraryBox.Text);
-        libraryBox.TextChanged += (_, _) =>
-        {
-            if (!configLibraryCustomized) configLibraryBox.Text = ConfigBackupService.DefaultStorageRoot(libraryBox.Text);
-        };
-        configLibraryBox.Leave += (_, _) => SaveConfigLibraryPath();
+        var savedLibraries = LibrarySelectionStore.Load();
+        libraryBox.Text = savedLibraries.Translation;
+        configLibraryBox.Text = savedLibraries.Configuration;
+        libraryBox.Leave += (_, _) => SaveLibraries();
+        configLibraryBox.Leave += (_, _) => SaveLibraries();
+        FormClosing += (_, _) => SaveLibraries();
         modsBox.Text = GuessModsPath() ?? "";
 
         ConfigureGrid();
@@ -293,7 +291,11 @@ internal sealed class MainForm : Form
     private void Browse(TextBox target)
     {
         using var dialog = new FolderBrowserDialog { ShowNewFolderButton = false, InitialDirectory = Directory.Exists(target.Text) ? target.Text : "" };
-        if (dialog.ShowDialog(this) == DialogResult.OK) target.Text = dialog.SelectedPath;
+        if (dialog.ShowDialog(this) == DialogResult.OK)
+        {
+            target.Text = dialog.SelectedPath;
+            if (ReferenceEquals(target, libraryBox)) SaveLibraries();
+        }
     }
 
     private void BrowseConfigLibrary()
@@ -301,14 +303,13 @@ internal sealed class MainForm : Form
         using var dialog = new FolderBrowserDialog { ShowNewFolderButton = true, InitialDirectory = Directory.Exists(configLibraryBox.Text) ? configLibraryBox.Text : libraryBox.Text };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
         configLibraryBox.Text = dialog.SelectedPath;
-        SaveConfigLibraryPath();
+        SaveLibraries();
     }
 
-    private void SaveConfigLibraryPath()
+    private void SaveLibraries()
     {
-        if (!Directory.Exists(configLibraryBox.Text)) return;
-        try { ConfigBackupService.SaveSelectedStorageRoot(configLibraryBox.Text); configLibraryCustomized = true; }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, T("Não foi possível salvar o caminho", "Could not save folder path"), MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+        try { LibrarySelectionStore.Save(libraryBox.Text, configLibraryBox.Text); }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, T("Não foi possível salvar as bibliotecas", "Could not save library folders"), MessageBoxButtons.OK, MessageBoxIcon.Warning); }
     }
 
     private void Analyze()
@@ -598,7 +599,6 @@ internal sealed class MainForm : Form
             MessageBox.Show(this, T("Escolha uma pasta existente para a biblioteca de configurações.", "Choose an existing settings library folder."), T("Pasta necessária", "Folder required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
-        SaveConfigLibraryPath();
         using var dialog = new ConfigBackupForm(configLibraryBox.Text, modsBox.Text, service);
         dialog.ShowDialog(this);
     }
