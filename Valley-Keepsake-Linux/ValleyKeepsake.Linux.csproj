@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>ValleyKeepsake</AssemblyName>
+    <Product>Valley Keepsake</Product>
+    <AssemblyTitle>Valley Keepsake</AssemblyTitle>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.2.3" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
+    <Compile Include="..\Valley-Keepsake\Models.cs" Link="Models.cs" />
+    <Compile Include="..\Valley-Keepsake\TranslationService.cs" Link="TranslationService.cs" />
+    <Compile Include="..\Valley-Keepsake\TranslationLocales.cs" Link="TranslationLocales.cs" />
+    <Compile Include="..\Valley-Keepsake\UiLanguage.cs" Link="UiLanguage.cs" />
+    <Compile Include="..\Valley-Keepsake\ConfigBackupService.cs" Link="ConfigBackupService.cs" />
+    <Compile Include="..\Valley-Keepsake\AppTheme.cs" Link="AppTheme.cs" />
+    <Compile Include="..\Valley-Keepsake\UpdateChecker.cs" Link="UpdateChecker.cs" />
+    <None Include="Assets\app.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\Junimo*.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\green_debris.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\pink_debris.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\PaintPalette.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\Junimo-Note.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\DialogueBoxBorder.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\SlimeHutchBorder.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\Slime.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\GardenBackground.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\GardenFrame.png" CopyToOutputDirectory="PreserveNewest" />
+    <AvaloniaResource Include="Assets\PixelifySans.ttf" />
+    <None Include="Assets\PixelifySans-OFL.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="install.sh" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="README-INSTALAR-NO-LINUX.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
