@@ -26,7 +26,7 @@ internal sealed class MainWindow : Window
     private readonly TextBox configLibrary = Field();
     private readonly TextBox mods = Field(FindInitialModsPath());
     private readonly TextBox search = Field();
-    private readonly ComboBox interfaceLanguage = new() { ItemsSource = new[] { "Português (Brasil)", "English" }, SelectedIndex = UiLanguage.Portuguese ? 0 : 1, Width = 155 };
+    private readonly ComboBox interfaceLanguage = new() { Width = 185 };
     private readonly ComboBox locale = new() { ItemsSource = new[] { "pt-BR", "en", "es", "fr", "de", "it", "ja", "ko", "zh-Hans", "zh-Hant", "ru", "tr", "pl", "cs" }.Select(TranslationLocales.DisplayOption).ToArray(), SelectedItem = TranslationLocales.DisplayOption(UiLanguage.TranslationLocale), Width = 140 };
     private readonly TextBlock summary = new() { Foreground = Brush("#AEE0E7"), VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.Bold };
     private readonly TextBlock subtitle = new() { Foreground = Brush("#AEE0E7"), FontWeight = FontWeight.Bold };
@@ -56,6 +56,9 @@ internal sealed class MainWindow : Window
 
     public MainWindow()
     {
+        var interfaceLanguages = UiLanguage.AvailableLanguages();
+        interfaceLanguage.ItemsSource = interfaceLanguages;
+        interfaceLanguage.SelectedIndex = interfaceLanguages.ToList().FindIndex(option => option.Code == UiLanguage.CurrentCode);
         Title = "Valley Keepsake";
         Icon = new WindowIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "app.png"));
         Width = 1280;
@@ -98,13 +101,26 @@ internal sealed class MainWindow : Window
         root.Children.Add(headerPanel);
 
         var fields = new Grid { ColumnDefinitions = new ColumnDefinitions("205,*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto") };
-        libraryLabel = AddFolderField(fields, 0, "Biblioteca de traduções:", library, "Escolha sua biblioteca de traduções");
-        configLibraryLabel = AddFolderField(fields, 1, "Biblioteca de configurações:", configLibrary, "Escolha sua biblioteca de configurações");
-        modsLabel = AddFolderField(fields, 2, "Pasta Mods do Stardew:", mods, "Escolha a pasta Mods do Stardew Valley");
+        libraryLabel = AddFolderField(fields, 0, "Biblioteca de traduções:", library, () => T("Escolha sua biblioteca de traduções", "Choose your translation library"));
+        configLibraryLabel = AddFolderField(fields, 1, "Biblioteca de configurações:", configLibrary, () => T("Escolha sua biblioteca de configurações", "Choose your settings library"));
+        modsLabel = AddFolderField(fields, 2, "Pasta Mods do Stardew:", mods, () => T("Escolha a pasta Mods do Stardew Valley", "Choose the Stardew Valley Mods folder"));
         searchLabel = AddField(fields, 3, "Pesquisar na lista:", search);
         search.Watermark = "Digite o nome do mod, tradução ou UniqueID…";
         search.TextChanged += (_, _) => RefreshRows();
-        interfaceLanguage.SelectionChanged += (_, _) => { UiLanguage.Set(interfaceLanguage.SelectedIndex == 0); ApplyInterfaceLanguage(); RefreshRows(); };
+        interfaceLanguage.SelectionChanged += (_, _) =>
+        {
+            if (interfaceLanguage.SelectedItem is not UiLanguage.LanguageOption selected) return;
+            var selectedKeys = results.Where(result => result.Selected).Select(result => MappingKey(result.Translation)).ToHashSet();
+            UiLanguage.Set(selected.Code);
+            ApplyInterfaceLanguage();
+            if (results.Count > 0)
+            {
+                Analyze(this, new RoutedEventArgs());
+                foreach (var result in results.Where(result => result.State == MatchState.Safe))
+                    result.Selected = selectedKeys.Contains(MappingKey(result.Translation));
+            }
+            RefreshRows();
+        };
         locale.SelectionChanged += (_, _) => { if (locale.SelectedItem is string code) { UiLanguage.SetTranslationLocale(TranslationLocales.FromDisplayOption(code)); RefreshMissing(); RefreshRows(); } };
         fieldsFrame = new Border { Child = fields, Padding = new Thickness(3), Margin = new Thickness(0, 6, 0, 8), BorderThickness = new Thickness(3) };
         Grid.SetRow(fieldsFrame, 1); root.Children.Add(fieldsFrame);
@@ -313,7 +329,7 @@ internal sealed class MainWindow : Window
         if (configLibraryLabel is not null) configLibraryLabel.Text = T("Biblioteca de configurações:", "Settings library:");
         if (modsLabel is not null) modsLabel.Text = T("Pasta Mods do Stardew:", "Stardew Mods folder:");
         if (searchLabel is not null) searchLabel.Text = T("Pesquisar na lista:", "Search list:");
-        if (interfaceLabel is not null) interfaceLabel.Text = "Interface:";
+        if (interfaceLabel is not null) interfaceLabel.Text = T("Interface:", "Interface:");
         if (localeLabel is not null) localeLabel.Text = T("Idioma da tradução:", "Translation language:");
         search.Watermark = T("Digite o nome do mod, tradução ou UniqueID…", "Search for a mod, translation, or UniqueID…");
         if (analyzeButton is not null) analyzeButton.Content = T("Analisar", "Analyze");
@@ -321,6 +337,7 @@ internal sealed class MainWindow : Window
         if (configsButton is not null) configsButton.Content = T("Backup de configurações", "Settings backup");
         if (applyButton is not null) applyButton.Content = T("Aplicar selecionadas", "Apply selected");
         if (undoButton is not null) undoButton.Content = T("Desfazer última aplicação", "Undo last application");
+        foreach (var browse in browseButtons) browse.Content = T("Escolher…", "Browse…");
         if (paletteButton is not null) ToolTip.SetTip(paletteButton, T("Escolher tema", "Choose theme"));
         if (grid.Columns.Count == 5)
         {
@@ -351,21 +368,23 @@ internal sealed class MainWindow : Window
     {
         var selected = results.Where(x => x.Translation.Locale == SelectedLocale && x.Selected && x.Target is not null && x.State == MatchState.Safe).ToList();
         if (selected.Count == 0) return;
-        if (!await ConfirmAsync("Confirmar aplicação", $"Aplicar {selected.Count} tradução(ões) em {SelectedLocale}?\n\nTraduções existentes serão preservadas.")) return;
+        if (!await ConfirmAsync(T("Confirmar aplicação", "Confirm application"),
+            string.Format(T("Aplicar {0} tradução(ões) em {1}?\n\nTraduções existentes serão preservadas.",
+                "Apply {0} translation(s) in {1}?\n\nExisting translations will be preserved."), selected.Count, SelectedLocale))) return;
         var backup = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TradutorModsStardew", "Backups", DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss"));
         var done = 0;
         lastApply = [];
         foreach (var result in selected) { try { lastApply.Add(service.Apply(result, backup)); result.State = MatchState.Applied; result.Selected = false; done++; } catch (Exception ex) { result.State = MatchState.Failed; result.Detail = ex.Message; } }
-        RefreshRows(); summary.Text = $"{done} tradução(ões) aplicada(s).";
+        RefreshRows(); summary.Text = string.Format(T("{0} tradução(ões) aplicada(s).", "{0} translation(s) applied."), done);
         await Task.CompletedTask;
     }
 
     private async void UndoLast(object? sender, RoutedEventArgs e)
     {
-        if (lastApply.Count == 0) { summary.Text = "Nenhuma aplicação desta sessão para desfazer."; return; }
-        if (!await ConfirmAsync("Confirmar", "Desfazer os arquivos aplicados na última operação?")) return;
+        if (lastApply.Count == 0) { summary.Text = T("Nenhuma aplicação desta sessão para desfazer.", "No application from this session to undo."); return; }
+        if (!await ConfirmAsync(T("Confirmar", "Confirm"), T("Desfazer os arquivos aplicados na última operação?", "Undo the files applied in the last operation?"))) return;
         try { service.Undo(lastApply); lastApply = []; Analyze(this, e); }
-        catch (Exception ex) { summary.Text = "Não foi possível desfazer: " + ex.Message; }
+        catch (Exception ex) { summary.Text = T("Não foi possível desfazer: ", "Could not undo: ") + ex.Message; }
     }
 
     private async void OpenConfigBackup(object? sender, RoutedEventArgs e)
@@ -395,7 +414,7 @@ internal sealed class MainWindow : Window
     {
         if (!Directory.Exists(library.Text) || !Directory.Exists(mods.Text))
         {
-            summary.Text = "Escolha duas pastas existentes antes de preparar os novos mods.";
+            summary.Text = T("Escolha duas pastas existentes antes de preparar os novos mods.", "Choose two existing folders before finding new mods.");
             return;
         }
 
@@ -405,11 +424,13 @@ internal sealed class MainWindow : Window
             var report = service.PrepareLibrary(library.Text!, installed, SelectedLocale);
             var imported = service.ImportInstalledTranslations(library.Text!, installed, SelectedLocale);
             Analyze(this, e);
-            summary.Text = $"Busca concluída: {report.CreatedFolders} pasta(s), {report.CopiedI18nReferences} referência(s) i18n, {imported.Imported} tradução(ões) copiadas. Os mods instalados não foram alterados.";
+            summary.Text = string.Format(T("Busca concluída: {0} pasta(s), {1} referência(s) i18n, {2} tradução(ões) copiadas. Os mods instalados não foram alterados.",
+                "Search complete: {0} folder(s), {1} i18n reference(s), {2} translation(s) copied. Installed mods were not changed."),
+                report.CreatedFolders, report.CopiedI18nReferences, imported.Imported);
         }
         catch (Exception ex)
         {
-            summary.Text = "Erro ao preparar novos mods: " + ex.Message;
+            summary.Text = T("Erro ao preparar novos mods: ", "Could not find new mods: ") + ex.Message;
         }
         await Task.CompletedTask;
     }
@@ -485,13 +506,13 @@ internal sealed class MainWindow : Window
         {
             result.State = MatchState.AlreadyTranslated;
             result.Selected = false;
-            result.Detail = "O componente escolhido já possui tradução neste idioma.";
+            result.Detail = T("O componente escolhido já possui tradução neste idioma.", "The selected component already has a translation in this language.");
         }
         else
         {
             result.State = MatchState.Safe;
             result.Selected = true;
-            result.Detail = "Destino confirmado manualmente.";
+            result.Detail = T("Destino confirmado manualmente.", "Target confirmed manually.");
             SaveMapping(result);
         }
         RefreshMissing();
@@ -500,11 +521,11 @@ internal sealed class MainWindow : Window
 
     private async Task<InstalledMod?> PickTargetAsync(MatchResult result)
     {
-        var dialog = DialogWindow("Confirmar mod de destino", 1050, 650);
+        var dialog = DialogWindow(T("Confirmar mod de destino", "Confirm target mod"), 1050, 650);
         var panel = new DockPanel { Margin = new Thickness(16) };
         var top = new StackPanel { Spacing = 8 };
-        top.Children.Add(new TextBlock { Text = "Origem: " + result.Translation.SourcePath, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.White });
-        var open = Button("Abrir origem no gerenciador de arquivos", "#1A617D");
+        top.Children.Add(new TextBlock { Text = T("Origem: ", "Source: ") + result.Translation.SourcePath, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.White });
+        var open = Button(T("Abrir origem no gerenciador de arquivos", "Open source in file manager"), "#1A617D");
         open.Click += (_, _) =>
         {
             var path = result.Translation.SourcePath;
@@ -513,16 +534,16 @@ internal sealed class MainWindow : Window
                 Process.Start(new ProcessStartInfo("xdg-open", folder) { UseShellExecute = false });
         };
         top.Children.Add(open);
-        top.Children.Add(new TextBlock { Text = "Escolha pelo caminho completo e UniqueID:", Foreground = Brushes.White });
+        top.Children.Add(new TextBlock { Text = T("Escolha pelo caminho completo e UniqueID:", "Choose by full path and UniqueID:"), Foreground = Brushes.White });
         var filter = Field(result.Translation.ComponentName);
         top.Children.Add(filter);
-        var destinationDetails = new TextBlock { Text = "Selecione um componente para ver seu destino completo.", TextWrapping = TextWrapping.Wrap, Foreground = Brush("#AEE0E7") };
+        var destinationDetails = new TextBlock { Text = T("Selecione um componente para ver seu destino completo.", "Select a component to see its full destination."), TextWrapping = TextWrapping.Wrap, Foreground = Brush("#AEE0E7") };
         top.Children.Add(destinationDetails);
         DockPanel.SetDock(top, Dock.Top); panel.Children.Add(top);
         var picker = new ListBox { Background = Brush("#133A53"), Foreground = Brushes.White };
         picker.SelectionChanged += (_, _) => destinationDetails.Text = picker.SelectedItem is PickerItem chosen
-            ? $"Destino: {chosen.Mod.Directory}\nUniqueID: {chosen.Mod.UniqueId}"
-            : "Selecione um componente para ver seu destino completo.";
+            ? string.Format(T("Destino: {0}\nUniqueID: {1}", "Target: {0}\nUniqueID: {1}"), chosen.Mod.Directory, chosen.Mod.UniqueId)
+            : T("Selecione um componente para ver seu destino completo.", "Select a component to see its full destination.");
         void Fill()
         {
             var query = filter.Text?.Trim() ?? "";
@@ -533,8 +554,8 @@ internal sealed class MainWindow : Window
         filter.TextChanged += (_, _) => Fill();
         Fill();
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
-        var cancel = Button("Cancelar", "#685BA6"); cancel.Click += (_, _) => dialog.Close((InstalledMod?)null);
-        var confirm = Button("Confirmar", "#286A58"); confirm.Click += (_, _) => dialog.Close((picker.SelectedItem as PickerItem)?.Mod);
+        var cancel = Button(T("Cancelar", "Cancel"), "#685BA6"); cancel.Click += (_, _) => dialog.Close((InstalledMod?)null);
+        var confirm = Button(T("Confirmar", "Confirm"), "#286A58"); confirm.Click += (_, _) => dialog.Close((picker.SelectedItem as PickerItem)?.Mod);
         buttons.Children.Add(cancel); buttons.Children.Add(confirm);
         DockPanel.SetDock(buttons, Dock.Bottom); panel.Children.Add(buttons);
         panel.Children.Add(picker);
@@ -555,7 +576,7 @@ internal sealed class MainWindow : Window
         {
             var chosen = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
             {
-                Title = $"Escolha a pasta de tradução de {mod.DisplayName}", AllowMultiple = false, SuggestedStartLocation = start
+                Title = string.Format(T("Escolha a pasta de tradução de {0}", "Choose the translation folder for {0}"), mod.DisplayName), AllowMultiple = false, SuggestedStartLocation = start
             });
             if (chosen.Count == 0) return;
             source = chosen[0].Path.LocalPath;
@@ -565,7 +586,7 @@ internal sealed class MainWindow : Window
         {
             var chosen = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Title = $"Escolha o arquivo de tradução de {mod.DisplayName}", AllowMultiple = false, SuggestedStartLocation = start,
+                Title = string.Format(T("Escolha o arquivo de tradução de {0}", "Choose the translation file for {0}"), mod.DisplayName), AllowMultiple = false, SuggestedStartLocation = start,
                 FileTypeFilter = [new FilePickerFileType("JSON") { Patterns = ["*.json"] }]
             });
             if (chosen.Count == 0) return;
@@ -579,12 +600,19 @@ internal sealed class MainWindow : Window
         }
         if (detected is not null && !TranslationLocales.SameTargetLanguage(detected, SelectedLocale))
         {
-            await NoticeAsync("Idioma diferente", $"A origem indica {detected}, mas o idioma escolhido é {SelectedLocale}. Nada foi copiado.");
+            await NoticeAsync(T("Idioma diferente", "Different language"),
+                string.Format(T("A origem indica {0}, mas o idioma escolhido é {1}. Nada foi copiado.",
+                    "The source indicates {0}, but the selected language is {1}. Nothing was copied."), detected, SelectedLocale));
             return;
         }
-        if (detected is null && !await ConfirmAsync("Confirmar idioma", $"O nome não identifica o idioma. Confirmar que esta tradução é em {SelectedLocale}?")) return;
+        if (detected is null && !await ConfirmAsync(T("Confirmar idioma", "Confirm language"),
+            string.Format(T("O nome não identifica o idioma. Confirmar que esta tradução é em {0}?",
+                "The name does not identify the language. Confirm that this translation is in {0}?"), SelectedLocale))) return;
         var language = detected ?? SelectedLocale;
-        if (!await ConfirmAsync("Confirmar importação", $"Guardar esta {(kind == 1 ? "pasta inteira" : "tradução")} na biblioteca?\n\nOrigem: {source}\nIdioma: {language}\n\nA origem não será alterada.")) return;
+        if (!await ConfirmAsync(T("Confirmar importação", "Confirm import"),
+            string.Format(T("Guardar esta {0} na biblioteca?\n\nOrigem: {1}\nIdioma: {2}\n\nA origem não será alterada.",
+                "Save this {0} to the library?\n\nSource: {1}\nLanguage: {2}\n\nThe source will not be changed."),
+                kind == 1 ? T("pasta inteira", "entire folder") : T("tradução", "translation"), source, language))) return;
         try
         {
             if (kind == 1) service.ImportI18nDirectory(library.Text!, mod, source, language);
@@ -594,27 +622,30 @@ internal sealed class MainWindow : Window
                 service.ImportI18nFile(library.Text!, mod, source, language, File.Exists(destination));
             }
             Analyze(this, new RoutedEventArgs());
-            await NoticeAsync("Concluído", "A tradução foi guardada na biblioteca. A origem não foi alterada.");
+            await NoticeAsync(T("Concluído", "Done"), T("A tradução foi guardada na biblioteca. A origem não foi alterada.", "The translation was saved to the library. The source was not changed."));
         }
-        catch (Exception ex) { await NoticeAsync("Não foi possível importar", ex.Message); }
+        catch (Exception ex) { await NoticeAsync(T("Não foi possível importar", "Could not import"), ex.Message); }
     }
 
     private async Task ImportDefaultAsync(InstalledMod mod, string source)
     {
         if (!TranslationLocales.SameTargetLanguage(SelectedLocale, "en"))
         {
-            await NoticeAsync("Idioma diferente", "default é a referência em inglês. Selecione en (default) para guardá-la; nada foi copiado.");
+            await NoticeAsync(T("Idioma diferente", "Different language"), T("default é a referência em inglês. Selecione en (default) para guardá-la; nada foi copiado.",
+                "default is the English reference. Select en (default) to save it; nothing was copied."));
             return;
         }
-        if (!await ConfirmAsync("Confirmar importação",
-            $"Guardar {source} como referência em inglês?\n\nEla não será aplicada por cima do default de um mod atualizado.")) return;
+        if (!await ConfirmAsync(T("Confirmar importação", "Confirm import"),
+            string.Format(T("Guardar {0} como referência em inglês?\n\nEla não será aplicada por cima do default de um mod atualizado.",
+                "Save {0} as an English reference?\n\nIt will not be applied over an updated mod's default file."), source))) return;
         try
         {
             service.ImportDefaultReference(library.Text!, mod, source);
             Analyze(this, new RoutedEventArgs());
-            await NoticeAsync("Concluído", "Referência em inglês salva na biblioteca. A origem não foi alterada.");
+            await NoticeAsync(T("Concluído", "Done"), T("Referência em inglês salva na biblioteca. A origem não foi alterada.",
+                "English reference saved to the library. The source was not changed."));
         }
-        catch (Exception ex) { await NoticeAsync("Não foi possível importar", ex.Message); }
+        catch (Exception ex) { await NoticeAsync(T("Não foi possível importar", "Could not import"), ex.Message); }
     }
 
     private async Task<int> ChooseImportKindAsync()
@@ -637,8 +668,8 @@ internal sealed class MainWindow : Window
         var panel = new StackPanel { Margin = new Thickness(20), Spacing = 18 };
         panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.White });
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
-        var no = Button("Cancelar", "#685BA6"); no.Click += (_, _) => dialog.Close(false);
-        var yes = Button("Confirmar", "#286A58"); yes.Click += (_, _) => dialog.Close(true);
+        var no = Button(T("Cancelar", "Cancel"), "#685BA6"); no.Click += (_, _) => dialog.Close(false);
+        var yes = Button(T("Confirmar", "Confirm"), "#286A58"); yes.Click += (_, _) => dialog.Close(true);
         buttons.Children.Add(no); buttons.Children.Add(yes); panel.Children.Add(buttons);
         dialog.Content = panel;
         return await dialog.ShowDialog<bool>(this);
@@ -649,7 +680,7 @@ internal sealed class MainWindow : Window
         var dialog = DialogWindow(title, 600, 240);
         var panel = new StackPanel { Margin = new Thickness(20), Spacing = 18 };
         panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.White });
-        var ok = Button("OK", "#1A617D"); ok.HorizontalAlignment = HorizontalAlignment.Right; ok.Click += (_, _) => dialog.Close();
+        var ok = Button(T("OK", "OK"), "#1A617D"); ok.HorizontalAlignment = HorizontalAlignment.Right; ok.Click += (_, _) => dialog.Close();
         panel.Children.Add(ok); dialog.Content = panel;
         await dialog.ShowDialog(this);
     }
@@ -703,7 +734,9 @@ internal sealed class MainWindow : Window
                 result.Target = target;
                 result.State = service.HasTranslation(target, result.Translation) ? MatchState.AlreadyTranslated : MatchState.Safe;
                 result.Selected = result.State == MatchState.Safe;
-                result.Detail = result.Selected ? "Destino lembrado de uma confirmação anterior." : "O destino já possui tradução neste idioma.";
+                result.Detail = result.Selected
+                    ? T("Destino lembrado de uma confirmação anterior.", "Target remembered from an earlier confirmation.")
+                    : T("O destino já possui tradução neste idioma.", "The target already has a translation in this language.");
             }
         }
         catch { }
@@ -734,12 +767,12 @@ internal sealed class MainWindow : Window
         _ => 6
     };
 
-    private TextBlock AddFolderField(Grid grid, int row, string label, TextBox field, string pickerTitle)
+    private TextBlock AddFolderField(Grid grid, int row, string label, TextBox field, Func<string> pickerTitle)
     {
         var text = AddField(grid, row, label, field);
-        var choose = Button("Escolher…", "#1A617D");
+        var choose = Button(T("Escolher…", "Browse…"), "#1A617D");
         choose.Margin = new Thickness(0, 7, 16, 7);
-        choose.Click += async (_, _) => await ChooseFolderAsync(field, pickerTitle);
+        choose.Click += async (_, _) => await ChooseFolderAsync(field, pickerTitle());
         browseButtons.Add(choose);
         Grid.SetRow(choose, row);
         Grid.SetColumn(choose, 2);

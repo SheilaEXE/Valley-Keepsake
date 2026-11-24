@@ -21,6 +21,7 @@ The app preserves translations already present in your Mods folder. It asks you 
 - The Linux x86-64 version has **only been tested on Steam Deck**; other Linux distributions are not yet verified.
 - The Windows x86 (32-bit) package is experimental and has not yet been tested on a 32-bit Windows installation.
 - The app interface is currently available in **English and Brazilian Portuguese**. You can choose the translation language independently of the interface language.
+- You can add another interface language with a JSON file in the app's `Languages` folder. See the [translation guide](Languages/README.md); this is separate from the mod translation language.
 
 ## Download and install
 

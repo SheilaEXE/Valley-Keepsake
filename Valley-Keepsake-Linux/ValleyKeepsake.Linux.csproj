@@ -9,6 +9,8 @@
     <AssemblyTitle>Valley Keepsake</AssemblyTitle>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="..\Languages\*.json" Link="Languages\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <Content Include="..\Languages\README.md" Link="Languages\README.md" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <PackageReference Include="Avalonia" Version="11.2.3" />
     <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />

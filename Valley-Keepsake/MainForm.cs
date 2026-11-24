@@ -32,7 +32,7 @@ internal sealed class MainForm : Form
     private readonly ThemedScrollBar verticalScroll = new(Orientation.Vertical) { Dock = DockStyle.Right, Width = 18, Visible = false };
     private readonly ThemedScrollBar horizontalScroll = new(Orientation.Horizontal) { Dock = DockStyle.Bottom, Height = 18, Visible = false };
     private bool updatingScrollBars;
-    private readonly ThemeSelector languagePicker = new() { Width = 160 };
+    private readonly ThemeSelector languagePicker = new() { Width = 185 };
     private readonly ThemeSelector localePicker = new() { Width = 160 };
     private readonly ThemeSelector themePicker = new() { Width = 160 };
     private readonly ThemePaletteButton themeButton = new();
@@ -177,15 +177,17 @@ internal sealed class MainForm : Form
         titleRow.Controls.Add(titleLabel);
         header.Controls.Add(titleRow, 0, 0);
         header.Controls.Add(help, 0, 1);
-        languagePicker.Items.AddRange(["English", "Português (Brasil)"]);
-        languagePicker.SelectedIndex = UiLanguage.Portuguese ? 1 : 0;
+        var interfaceLanguages = UiLanguage.AvailableLanguages();
+        languagePicker.Items.AddRange(interfaceLanguages.Cast<object>().ToArray());
+        languagePicker.SelectedIndex = interfaceLanguages.ToList().FindIndex(option => option.Code == UiLanguage.CurrentCode);
         languagePicker.SelectedIndexChanged += (_, _) =>
         {
-            try { UiLanguage.Set(languagePicker.SelectedIndex == 1); }
+            if (languagePicker.SelectedItem is not UiLanguage.LanguageOption selected) return;
+            try { UiLanguage.Set(selected.Code); }
             catch (Exception ex)
             {
                 MessageBox.Show(this, ex.Message, T("Não foi possível salvar o idioma", "Could not save language"), MessageBoxButtons.OK, MessageBoxIcon.Error);
-                languagePicker.SelectedIndex = UiLanguage.Portuguese ? 1 : 0;
+                languagePicker.SelectedIndex = interfaceLanguages.ToList().FindIndex(option => option.Code == UiLanguage.CurrentCode);
                 return;
             }
             ApplyLanguage();

@@ -12,6 +12,8 @@
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="..\Languages\*.json" Link="Languages\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <Content Include="..\Languages\README.md" Link="Languages\README.md" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <Content Include="Assets\app.ico" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <Content Include="Assets\PixelifySans.ttf" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\PixelifySans-OFL.txt" CopyToOutputDirectory="PreserveNewest" />
