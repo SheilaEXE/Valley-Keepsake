@@ -57,10 +57,12 @@ internal sealed class ConfigWindow : Window
         var export = Button(T("Exportar todos os configs", "Export all settings"), "#1A617D"); export.Click += ExportAll;
         var restore = Button(T("Restaurar selecionados", "Restore selected"), "#286A58"); restore.Click += RestoreSelected;
         var restoreAll = Button(T("Restaurar tudo", "Restore all"), "#286A58"); restoreAll.Click += RestoreAll;
-        DeckTheme.Button(refresh, theme, theme.BorderLight);
-        DeckTheme.Button(export, theme, System.Drawing.Color.FromArgb(116, 188, 72));
-        DeckTheme.Button(restore, theme, System.Drawing.Color.FromArgb(255, 204, 83));
-        DeckTheme.Button(restoreAll, theme, System.Drawing.Color.FromArgb(220, 75, 72));
+        var rose = System.Drawing.Color.FromArgb(243, 145, 182);
+        var neutral = theme.IsLight ? theme.BorderDark : theme.BorderLight;
+        DeckTheme.Button(refresh, theme, theme.Kind == ThemeKind.Garden ? rose : neutral);
+        DeckTheme.Button(export, theme, theme.Kind == ThemeKind.Garden ? rose : neutral);
+        DeckTheme.Button(restore, theme, theme.Kind == ThemeKind.Garden ? rose : theme.ScrollThumb);
+        DeckTheme.Button(restoreAll, theme, theme.Kind == ThemeKind.Garden ? rose : theme.ScrollThumb);
         ToolTip.SetTip(restoreAll, T("Restaura todos os configs ausentes ou diferentes com uma confirmação única. Os arquivos atuais substituídos são guardados antes.", "Restores all missing or different configs with one confirmation. Existing files are backed up first."));
         actions.Children.Add(refresh); actions.Children.Add(export); actions.Children.Add(restore); actions.Children.Add(restoreAll);
         Grid.SetRow(actions, 1); footer.Children.Add(actions);

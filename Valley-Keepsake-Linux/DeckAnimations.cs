@@ -33,6 +33,11 @@ internal sealed class JunimoDisplay : Control
         }
         RenderOptions.SetBitmapInterpolationMode(this, BitmapInterpolationMode.None);
         timer.Tick += (_, _) => { frame = (frame + 1) % 4; InvalidateVisual(); };
+    }
+
+    protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
         timer.Start();
     }
 
@@ -80,9 +85,10 @@ internal sealed class JunimoDisplay : Control
     protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
     {
         timer.Stop();
-        foreach (var strip in strips) strip?.Dispose();
         base.OnDetachedFromVisualTree(e);
     }
+
+    public void Dispose() { timer.Stop(); foreach (var strip in strips) strip?.Dispose(); }
 }
 
 internal sealed class SlimeDisplay : Control
@@ -111,6 +117,11 @@ internal sealed class SlimeDisplay : Control
         }
         RenderOptions.SetBitmapInterpolationMode(this, BitmapInterpolationMode.None);
         timer.Tick += (_, _) => { frame = (frame + 1) % 4; InvalidateVisual(); };
+    }
+
+    protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
         timer.Start();
     }
 
@@ -159,10 +170,10 @@ internal sealed class SlimeDisplay : Control
     protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
     {
         timer.Stop();
-        sheet?.Dispose();
-        foreach (var image in tinted) image?.Dispose();
         base.OnDetachedFromVisualTree(e);
     }
+
+    public void Dispose() { timer.Stop(); sheet?.Dispose(); foreach (var image in tinted) image?.Dispose(); }
 }
 
 internal sealed class LeafLayer : Control

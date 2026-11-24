@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Controls.Primitives;
+using Avalonia.VisualTree;
 using TradutorModsStardew;
 using DrawingColor = System.Drawing.Color;
 
@@ -34,6 +35,10 @@ internal static class DeckTheme
             button.Tag = colors;
             button.PointerEntered += (_, _) => { colors.Hovered = true; PaintButton(button, colors); };
             button.PointerExited += (_, _) => { colors.Hovered = false; PaintButton(button, colors); };
+            button.PropertyChanged += (_, args) =>
+            {
+                if (args.Property == Avalonia.Input.InputElement.IsEnabledProperty) PaintButton(button, colors);
+            };
         }
         colors.Theme = theme;
         colors.Accent = accent;
@@ -43,13 +48,31 @@ internal static class DeckTheme
     private static void PaintButton(Button button, ButtonColors colors)
     {
         var theme = colors.Theme;
-        var fill = colors.Hovered ? colors.Accent : theme.Button;
+        bool hovered = colors.Hovered && button.IsEnabled;
+        var fill = !button.IsEnabled
+            ? theme.Kind == ThemeKind.Classic ? DrawingColor.FromArgb(47, 69, 86) : AppTheme.Blend(theme.Button, theme.Panel, .6)
+            : hovered ? colors.Accent : theme.Button;
+        bool accentBrightGreen = colors.Accent.G > colors.Accent.R * 1.2 && colors.Accent.G > colors.Accent.B * 1.1;
+        bool accentBrightYellow = colors.Accent.R > 180 && colors.Accent.G > 150 && colors.Accent.B < 150;
+        var hoverText = theme.Kind != ThemeKind.Classic && (accentBrightGreen || accentBrightYellow)
+            ? theme.BorderDark : theme.HoverText;
+        var hoverBorder = theme.Kind == ThemeKind.Classic ? DrawingColor.White : theme.BorderLight;
+        foreach (var suffix in new[] { "PointerOver", "Pressed" })
+        {
+            button.Resources[$"ButtonBackground{suffix}"] = Brush(colors.Accent);
+            button.Resources[$"ButtonBorderBrush{suffix}"] = Brush(hoverBorder);
+            button.Resources[$"ButtonForeground{suffix}"] = Brush(hoverText);
+        }
+        button.Resources["ButtonBackgroundDisabled"] = Brush(theme.Kind == ThemeKind.Classic
+            ? DrawingColor.FromArgb(47, 69, 86) : AppTheme.Blend(theme.Button, theme.Panel, .6));
+        button.Resources["ButtonBorderBrushDisabled"] = Brush(theme.ButtonBorder);
+        button.Resources["ButtonForegroundDisabled"] = Brush(theme.MutedText);
         button.Background = Brush(fill);
-        button.BorderBrush = Brush(colors.Hovered ? theme.BorderLight : theme.ButtonBorder);
-        bool brightGreen = fill.G > fill.R * 1.2 && fill.G > fill.B * 1.1;
-        bool brightYellow = fill.R > 180 && fill.G > 150 && fill.B < 150;
-        button.Foreground = Brush(colors.Hovered && (brightGreen || brightYellow) ? theme.BorderDark :
-            colors.Hovered ? theme.HoverText : theme.ButtonText);
+        button.BorderBrush = Brush(hovered
+            ? theme.Kind == ThemeKind.Classic ? DrawingColor.White : theme.BorderLight
+            : theme.ButtonBorder);
+        button.Foreground = Brush(!button.IsEnabled ? theme.MutedText
+            : hovered ? hoverText : theme.ButtonText);
         button.CornerRadius = new CornerRadius(8);
         button.BorderThickness = new Thickness(1);
     }
@@ -92,6 +115,21 @@ internal static class DeckTheme
 
     public static void Grid(DataGrid grid, AppTheme theme)
     {
+        // O template Fluent desenha uma camada de seleção própria sobre o fundo da linha.
+        // Substitua todos os estados para que a cor seja a mesma usada no Windows.
+        foreach (var key in new[]
+        {
+            "DataGridRowSelectedBackgroundBrush", "DataGridRowSelectedHoveredBackgroundBrush",
+            "DataGridRowSelectedUnfocusedBackgroundBrush", "DataGridRowSelectedHoveredUnfocusedBackgroundBrush"
+        }) grid.Resources[key] = Brush(theme.GridSelection);
+        foreach (var key in new[]
+        {
+            "DataGridRowSelectedBackgroundOpacity", "DataGridRowSelectedHoveredBackgroundOpacity",
+            "DataGridRowSelectedUnfocusedBackgroundOpacity", "DataGridRowSelectedHoveredUnfocusedBackgroundOpacity"
+        }) grid.Resources[key] = 1d;
+        grid.Resources["DataGridRowHoveredBackgroundColor"] = Brush(AppTheme.Blend(theme.Row, theme.Selection, .25));
+        grid.Resources["DataGridCellFocusVisualPrimaryBrush"] = Brush(theme.BorderLight);
+        grid.Resources["DataGridCellFocusVisualSecondaryBrush"] = Brush(theme.BorderDark);
         grid.Background = Brush(theme.Row);
         grid.Foreground = Brush(theme.Text);
         grid.BorderBrush = Brush(theme.BorderDark);
@@ -110,7 +148,10 @@ internal static class DeckTheme
             {
                 new Setter(DataGridColumnHeader.BackgroundProperty, Brush(theme.Header)),
                 new Setter(DataGridColumnHeader.ForegroundProperty, Brush(theme.Text)),
-                new Setter(DataGridColumnHeader.BorderBrushProperty, Brush(theme.BorderDark))
+                new Setter(DataGridColumnHeader.BorderBrushProperty, Brush(theme.BorderDark)),
+                new Setter(DataGridColumnHeader.FontSizeProperty, 15d),
+                new Setter(DataGridColumnHeader.FontWeightProperty, FontWeight.Bold),
+                new Setter(DataGridColumnHeader.MinHeightProperty, 34d)
             }
         });
         grid.Styles.Add(new Style(selector => selector.OfType<ScrollBar>())
@@ -154,11 +195,13 @@ internal static class DeckTheme
 
     private static void PaintRow(DataGridRow row, RowColors colors)
     {
-        bool highlighted = colors.Hovered || row.IsSelected;
-        var highlight = colors.Theme.IsLight
-            ? AppTheme.Blend(colors.Theme.Row, colors.Theme.Selection, .55)
-            : colors.Theme.GridSelection;
-        row.Background = Brush(highlighted ? highlight : colors.BaseColor);
-        row.Foreground = Brush(colors.Theme.Text);
+        var theme = colors.Theme;
+        var background = row.IsSelected ? theme.GridSelection
+            : colors.Hovered ? AppTheme.Blend(colors.BaseColor, theme.Selection, .25)
+            : colors.BaseColor;
+        row.Background = Brush(background);
+        row.Foreground = Brush(row.IsSelected ? theme.GridSelectionText : theme.Text);
+        foreach (var text in row.GetVisualDescendants().OfType<TextBlock>())
+            text.Foreground = Brush(row.IsSelected ? theme.GridSelectionText : theme.Text);
     }
 }

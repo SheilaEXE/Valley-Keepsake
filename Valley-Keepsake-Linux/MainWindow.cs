@@ -43,6 +43,9 @@ internal sealed class MainWindow : Window
     private readonly DeckFrame noteBackground = new() { BackgroundOnly = true };
     private Grid? rootLayout;
     private Border? fieldsFrame, listFrame;
+    private Border? listDragHandle, listDragGrip;
+    private double expandedFieldsHeight, dragStartY, dragStartHeight;
+    private bool draggingList;
     private Grid? headerPanel, footerPanel;
     private Grid? pageGrid;
     private Button? paletteButton;
@@ -73,8 +76,9 @@ internal sealed class MainWindow : Window
         configLibrary.LostFocus += (_, _) => SaveLibraries();
         Closing += (_, _) => SaveLibraries();
         Closing += (_, _) => updateCheckCancellation.Cancel();
+        Closed += (_, _) => { junimos.Dispose(); slimes.Dispose(); };
         Opened += async (_, _) => await CheckForUpdatesAsync();
-        var root = new Grid { Margin = new Thickness(initialTheme.Kind switch { ThemeKind.Parchment => 84, ThemeKind.Wood => 64, ThemeKind.Mine => 56, ThemeKind.Garden => 72, _ => 20 }), RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto") };
+        var root = new Grid { Margin = new Thickness(initialTheme.Kind switch { ThemeKind.Parchment => 84, ThemeKind.Wood => 64, ThemeKind.Mine => 56, ThemeKind.Garden => 72, _ => 20 }), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*,Auto") };
         rootLayout = root;
         headerPanel = new Grid { Height = 94, ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto") };
         titleText.Margin = new Thickness(8, 2, 0, 0);
@@ -122,8 +126,33 @@ internal sealed class MainWindow : Window
             RefreshRows();
         };
         locale.SelectionChanged += (_, _) => { if (locale.SelectedItem is string code) { UiLanguage.SetTranslationLocale(TranslationLocales.FromDisplayOption(code)); RefreshMissing(); RefreshRows(); } };
-        fieldsFrame = new Border { Child = fields, Padding = new Thickness(3), Margin = new Thickness(0, 6, 0, 8), BorderThickness = new Thickness(3) };
+        fieldsFrame = new Border { Child = fields, Padding = new Thickness(3), Margin = new Thickness(0, 6, 0, 8), BorderThickness = new Thickness(3), ClipToBounds = true };
         Grid.SetRow(fieldsFrame, 1); root.Children.Add(fieldsFrame);
+
+        listDragGrip = new Border { Width = 76, Height = 5, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        listDragHandle = new Border { Height = 24, Child = listDragGrip, IsVisible = false };
+        ToolTip.SetTip(listDragHandle, T("Arraste para aumentar ou diminuir a lista", "Drag to expand or shrink the list"));
+        listDragHandle.PointerPressed += (_, e) =>
+        {
+            if (fieldsFrame is null || e.Pointer.Type != PointerType.Touch && !e.GetCurrentPoint(listDragHandle).Properties.IsLeftButtonPressed) return;
+            expandedFieldsHeight = Math.Max(expandedFieldsHeight, fieldsFrame.Bounds.Height);
+            dragStartHeight = fieldsFrame.IsVisible ? fieldsFrame.Bounds.Height : 0;
+            dragStartY = e.GetPosition(root).Y;
+            draggingList = true;
+            e.Pointer.Capture(listDragHandle);
+            e.Handled = true;
+        };
+        listDragHandle.PointerMoved += (_, e) =>
+        {
+            if (!draggingList || fieldsFrame is null) return;
+            double height = Math.Clamp(dragStartHeight + e.GetPosition(root).Y - dragStartY, 0, expandedFieldsHeight);
+            fieldsFrame.IsVisible = height > 0;
+            fieldsFrame.Height = height;
+            e.Handled = true;
+        };
+        listDragHandle.PointerReleased += (_, e) => { draggingList = false; e.Pointer.Capture(null); };
+        listDragHandle.PointerCaptureLost += (_, _) => draggingList = false;
+        Grid.SetRow(listDragHandle, 2); root.Children.Add(listDragHandle);
 
         grid.ItemsSource = rows;
         grid.Columns.Add(new DataGridCheckBoxColumn { Header = "Aplicar", Binding = new Binding("Selected") });
@@ -134,7 +163,7 @@ internal sealed class MainWindow : Window
         grid.DoubleTapped += async (_, _) => { if (grid.SelectedItem is Row row) await OpenRowAsync(row); };
         grid.LoadingRow += (_, args) => PaintRow(args.Row);
         listFrame = new Border { Child = grid, Padding = new Thickness(3), BorderThickness = new Thickness(3) };
-        Grid.SetRow(listFrame, 2); root.Children.Add(listFrame);
+        Grid.SetRow(listFrame, 3); root.Children.Add(listFrame);
 
         var footer = new Grid { Margin = new Thickness(0, 10, 0, 0), RowDefinitions = new RowDefinitions("Auto,Auto"), ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         footerPanel = footer;
@@ -153,7 +182,7 @@ internal sealed class MainWindow : Window
         Grid.SetRow(actions, 1); footer.Children.Add(actions);
         Grid.SetRow(junimos, 1); Grid.SetColumn(junimos, 1); footer.Children.Add(junimos);
         Grid.SetRow(slimes, 1); Grid.SetColumn(slimes, 1); footer.Children.Add(slimes);
-        Grid.SetRow(footer, 3); root.Children.Add(footer);
+        Grid.SetRow(footer, 4); root.Children.Add(footer);
         var page = new Grid();
         pageGrid = page;
         page.Children.Add(noteBackground);
@@ -253,14 +282,21 @@ internal sealed class MainWindow : Window
             listFrame.Background = DeckTheme.Brush(theme.Row);
             listFrame.BorderBrush = DeckTheme.Brush(theme.BorderDark);
         }
+        if (listDragHandle is not null) listDragHandle.Background = DeckTheme.Brush(theme.Panel);
+        if (listDragGrip is not null) listDragGrip.Background = DeckTheme.Brush(theme.BorderDark);
         DeckTheme.Grid(grid, theme);
         var gardenRose = System.Drawing.Color.FromArgb(243, 145, 182);
-        if (analyzeButton is not null) DeckTheme.Button(analyzeButton, theme, theme.Kind == ThemeKind.Garden ? gardenRose : theme.BorderLight);
-        if (prepareButton is not null) DeckTheme.Button(prepareButton, theme, theme.Kind == ThemeKind.Garden ? gardenRose : System.Drawing.Color.FromArgb(116, 188, 72));
-        if (configsButton is not null) DeckTheme.Button(configsButton, theme, System.Drawing.Color.FromArgb(255, 204, 83));
-        if (applyButton is not null) DeckTheme.Button(applyButton, theme, theme.Kind == ThemeKind.Garden ? gardenRose : System.Drawing.Color.FromArgb(116, 188, 72));
-        if (undoButton is not null) DeckTheme.Button(undoButton, theme, System.Drawing.Color.FromArgb(220, 75, 72));
-        foreach (var browse in browseButtons) DeckTheme.Button(browse, theme, theme.Kind == ThemeKind.Garden ? gardenRose : System.Drawing.Color.FromArgb(116, 188, 72));
+        var green = theme.Kind == ThemeKind.Classic ? System.Drawing.Color.FromArgb(161, 232, 74) : theme.ScrollThumb;
+        var yellow = System.Drawing.Color.FromArgb(255, 198, 82);
+        var red = System.Drawing.Color.FromArgb(239, 91, 96);
+        var neutral = theme.Kind == ThemeKind.Classic ? System.Drawing.Color.FromArgb(108, 224, 230)
+            : theme.IsLight ? theme.BorderDark : System.Drawing.Color.FromArgb(111, 101, 176);
+        if (analyzeButton is not null) DeckTheme.Button(analyzeButton, theme, theme.Kind == ThemeKind.Garden ? gardenRose : neutral);
+        if (prepareButton is not null) DeckTheme.Button(prepareButton, theme, theme.Kind == ThemeKind.Garden ? gardenRose : green);
+        if (configsButton is not null) DeckTheme.Button(configsButton, theme, yellow);
+        if (applyButton is not null) DeckTheme.Button(applyButton, theme, theme.Kind == ThemeKind.Garden ? gardenRose : green);
+        if (undoButton is not null) DeckTheme.Button(undoButton, theme, red);
+        foreach (var browse in browseButtons) DeckTheme.Button(browse, theme, theme.Kind == ThemeKind.Garden ? gardenRose : theme.Kind == ThemeKind.Classic ? green : neutral);
         junimos.ApplyTheme(theme);
         junimos.IsVisible = theme.Kind != ThemeKind.Mine;
         slimes.IsVisible = theme.Kind == ThemeKind.Mine;
@@ -454,6 +490,7 @@ internal sealed class MainWindow : Window
             }
         }
         var safe = results.Count(x => x.Translation.Locale == SelectedLocale && x.State == MatchState.Safe);
+        if (listDragHandle is not null) listDragHandle.IsVisible = installed.Count > 0;
         var existing = results.Count(x => x.Translation.Locale == SelectedLocale && x.State == MatchState.AlreadyTranslated);
         summary.Text = results.Count == 0 ? T("Para analisar traduções, escolha a biblioteca de traduções e a pasta Mods.", "To analyze translations, choose the translation library and Mods folder.")
             : T($"{installed.Count} mods • {safe} prontas • {existing} já traduzidas • {rows.Count} linhas exibidas",
