@@ -37,8 +37,7 @@ internal sealed class MainWindow : Window
     private readonly TextBlock titleText = new() { Text = "Valley Keepsake", FontSize = 25, FontWeight = FontWeight.Bold, FontFamily = new FontFamily("avares://ValleyKeepsake/Assets#Pixelify Sans") };
     private readonly JunimoDisplay junimos = new() { Width = 360, Height = 78, HorizontalAlignment = HorizontalAlignment.Right };
     private readonly SlimeDisplay slimes = new() { Width = 360, Height = 104, HorizontalAlignment = HorizontalAlignment.Right };
-    private readonly LeafLayer headerLeaves = new() { IsHitTestVisible = false };
-    private readonly LeafLayer footerLeaves = new() { IsHitTestVisible = false };
+    private readonly LeafLayer gardenLeaves = new() { IsHitTestVisible = false };
     private readonly DeckFrame outerFrame = new();
     private readonly DeckFrame noteBackground = new() { BackgroundOnly = true };
     private Grid? rootLayout;
@@ -187,7 +186,6 @@ internal sealed class MainWindow : Window
 
         var footer = new Grid { Margin = new Thickness(0, 10, 0, 0), RowDefinitions = new RowDefinitions("Auto,Auto"), ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         footerPanel = footer;
-        footer.Children.Add(footerLeaves); Grid.SetRowSpan(footerLeaves, 2); Grid.SetColumnSpan(footerLeaves, 2);
         summary.TextWrapping = TextWrapping.Wrap;
         summary.Margin = new Thickness(0, 0, 0, 8);
         footer.Children.Add(summary);
@@ -206,9 +204,7 @@ internal sealed class MainWindow : Window
         var page = new Grid();
         pageGrid = page;
         page.Children.Add(noteBackground);
-        headerLeaves.VerticalAlignment = VerticalAlignment.Top;
-        headerLeaves.Height = 166;
-        page.Children.Add(headerLeaves);
+        page.Children.Add(gardenLeaves);
         page.Children.Add(root);
         page.Children.Add(outerFrame);
         chrome = DeckWindowChrome.Attach(this, page, initialTheme);
@@ -372,7 +368,7 @@ internal sealed class MainWindow : Window
                 junimos.Margin = new Thickness(0);
             }
         }
-        headerLeaves.ApplyTheme(theme); footerLeaves.ApplyTheme(theme);
+        gardenLeaves.ApplyTheme(theme);
         outerFrame.ApplyTheme(theme);
         noteBackground.ApplyTheme(theme);
         foreach (var row in grid.GetVisualDescendants().OfType<DataGridRow>()) PaintRow(row);
