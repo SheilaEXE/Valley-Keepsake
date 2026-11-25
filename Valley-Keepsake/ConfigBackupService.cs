@@ -7,9 +7,6 @@ internal sealed class ConfigBackupService
 {
     private static string T(string pt, string en) => UiLanguage.Text(pt, en);
     private const string ConfigFolderName = "Configurações dos Mods";
-    private const string MetadataFileName = "informacoes.json";
-
-    private sealed record StoredConfigInfo(string UniqueId, string DisplayName, DateTimeOffset ExportedAt);
 
     public static string DefaultStorageRoot(string translationLibraryRoot) => Path.Combine(translationLibraryRoot, ConfigFolderName);
 
@@ -17,14 +14,14 @@ internal sealed class ConfigBackupService
 
     public List<ConfigResult> Compare(string libraryRoot, IEnumerable<InstalledMod> mods)
     {
-        var snapshots = ReadSnapshots(libraryRoot);
         return mods
             .Where(mod => !string.IsNullOrWhiteSpace(mod.UniqueId))
             .GroupBy(mod => mod.UniqueId, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
-            .Where(mod => File.Exists(Path.Combine(mod.Directory, "config.json")) || snapshots.ContainsKey(mod.UniqueId))
-            .OrderBy(mod => mod.DisplayName, StringComparer.CurrentCultureIgnoreCase)
-            .Select(mod => CreateResult(mod, snapshots.GetValueOrDefault(mod.UniqueId)))
+            .Select(mod => new { Mod = mod, SavedPath = Path.Combine(GetStorageRoot(libraryRoot), FolderFor(mod.UniqueId), "config.json") })
+            .Where(item => File.Exists(Path.Combine(item.Mod.Directory, "config.json")) || File.Exists(item.SavedPath))
+            .OrderBy(item => item.Mod.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+            .Select(item => CreateResult(item.Mod, File.Exists(item.SavedPath) ? new ConfigSnapshot(item.SavedPath) : null))
             .ToList();
     }
 
@@ -41,8 +38,6 @@ internal sealed class ConfigBackupService
             Directory.CreateDirectory(folder);
             var destination = Path.Combine(folder, "config.json");
             File.Copy(source, destination, true);
-            var info = new StoredConfigInfo(mod.UniqueId, mod.DisplayName, DateTimeOffset.UtcNow);
-            File.WriteAllText(Path.Combine(folder, MetadataFileName), JsonSerializer.Serialize(info, new JsonSerializerOptions { WriteIndented = true }));
             count++;
         }
         return count;
@@ -85,34 +80,6 @@ internal sealed class ConfigBackupService
             ? T("Há diferenças. Ao restaurar, a configuração atual será guardada em um backup datado.", "There are differences. Restoring will first save the current configuration in a dated backup.")
             : T("O mod ainda não possui config.json. A cópia salva pode ser restaurada.", "This mod has no config.json yet. The saved copy can be restored.");
         return new ConfigResult { Mod = mod, Snapshot = snapshot, State = ConfigState.ReadyToRestore, Detail = detail, Selected = true };
-    }
-
-    private Dictionary<string, ConfigSnapshot> ReadSnapshots(string libraryRoot)
-    {
-        var root = GetStorageRoot(libraryRoot);
-        var snapshots = new Dictionary<string, ConfigSnapshot>(StringComparer.OrdinalIgnoreCase);
-        if (!Directory.Exists(root))
-            return snapshots;
-
-        foreach (var metadataPath in Directory.EnumerateFiles(root, MetadataFileName, SearchOption.AllDirectories))
-            AddSnapshot(metadataPath, snapshots);
-        return snapshots;
-    }
-
-    private static void AddSnapshot(string metadataPath, Dictionary<string, ConfigSnapshot> snapshots)
-    {
-        try
-        {
-            var info = JsonSerializer.Deserialize<StoredConfigInfo>(File.ReadAllText(metadataPath));
-            if (info is null || string.IsNullOrWhiteSpace(info.UniqueId)) return;
-            var configPath = Path.Combine(Path.GetDirectoryName(metadataPath)!, "config.json");
-            if (!File.Exists(configPath)) return;
-            snapshots[info.UniqueId] = new ConfigSnapshot(info.UniqueId, info.DisplayName, configPath, metadataPath, info.ExportedAt);
-        }
-        catch
-        {
-            // A malformed saved file must not prevent the other mods from appearing.
-        }
     }
 
     private static bool FilesEqual(string first, string second) => File.ReadAllBytes(first).AsSpan().SequenceEqual(File.ReadAllBytes(second));

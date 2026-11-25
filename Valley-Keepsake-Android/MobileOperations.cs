@@ -127,10 +127,6 @@ internal sealed class MobileOperations
             var folder = await library.CreateFolderAsync(SafeName(mod.UniqueId))
                 ?? throw new IOException("Não foi possível criar a pasta do backup.");
             await MobileStorage.CopyFileAsync(mod.CurrentConfig!, folder, "config.json");
-            await MobileStorage.WriteTextAsync(folder, "informacoes.json", JsonSerializer.Serialize(new
-            {
-                mod.UniqueId, DisplayName = mod.Name, ExportedAt = DateTimeOffset.UtcNow
-            }));
             count++;
         }
         return count;

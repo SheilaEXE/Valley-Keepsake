@@ -6,6 +6,8 @@ O aplicativo encontra os `manifest.json` instalados, guarda traduções `i18n` d
 
 O nome da pasta que guarda a configuração anterior a uma restauração vem da chave `Backups before restore` dos catálogos `Languages/en.json` e `Languages/pt-BR.json`, incluídos no APK. Pastas de backup já existentes mantêm seus nomes.
 
+Cada backup novo guarda apenas o `config.json` na pasta do `UniqueID`. Arquivos `informacoes.json` criados por versões anteriores não são necessários para a leitura e permanecem intactos nas bibliotecas existentes.
+
 Ainda não há correspondência aproximada para mods renomeados, importação de arquivos escolhidos avulsos, aplicação de mapas `content.json`, seleção de destino incerto, nem os temas completos do desktop. A leitura da pasta Mods e o armazenamento das traduções foram confirmados em um aparelho real; a aplicação e a restauração ainda precisam de testes nesse aparelho antes de publicar um release. Confira o mod selecionado antes de restaurar sua configuração.
 
 No Android 11 ou mais novo, o seletor do sistema impede a seleção de pastas dentro de `Android/data` e `Android/obb`. Se o port do SMAPI guardar `Mods` nesses locais, outro app independente não consegue acessar essa pasta pelo seletor; o port precisa oferecer uma pasta compartilhada acessível.

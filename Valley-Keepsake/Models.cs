@@ -66,12 +66,7 @@ internal enum ConfigState
     Failed
 }
 
-internal sealed record ConfigSnapshot(
-    string UniqueId,
-    string DisplayName,
-    string ConfigPath,
-    string MetadataPath,
-    DateTimeOffset ExportedAt);
+internal sealed record ConfigSnapshot(string ConfigPath);
 
 internal sealed class ConfigResult
 {

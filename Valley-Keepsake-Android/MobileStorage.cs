@@ -74,13 +74,4 @@ internal static class MobileStorage
             }
         }
     }
-
-    public static async Task WriteTextAsync(IStorageFolder folder, string name, string text)
-    {
-        var target = await folder.CreateFileAsync(name)
-            ?? throw new IOException("Não foi possível criar o arquivo no destino.");
-        await using var stream = await target.OpenWriteAsync();
-        await using var writer = new StreamWriter(stream, new UTF8Encoding(false));
-        await writer.WriteAsync(text);
-    }
 }
