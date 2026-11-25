@@ -730,7 +730,8 @@ public sealed class MainView : UserControl
         if (selected.Count == 0) return;
         await RunAsync(async () =>
         {
-            var count = await operations.RestoreConfigsAsync(configsFolder, selected);
+            var count = await operations.RestoreConfigsAsync(configsFolder, selected,
+                MobileBackupFolderName.ForLanguage(portuguese ? "pt-BR" : "en"));
             await ScanCoreAsync();
             if (count == 0)
                 SetStatus("As configurações selecionadas já são iguais às cópias salvas.",
@@ -749,7 +750,8 @@ public sealed class MainView : UserControl
         if (mods.Count == 0) return;
         await RunAsync(async () =>
         {
-            var count = await operations.RestoreConfigsAsync(configsFolder, mods);
+            var count = await operations.RestoreConfigsAsync(configsFolder, mods,
+                MobileBackupFolderName.ForLanguage(portuguese ? "pt-BR" : "en"));
             await ScanCoreAsync();
             SetStatus($"{count} configuração(ões) restaurada(s). As versões anteriores foram guardadas na biblioteca.",
                 $"{count} settings file(s) restored. Previous versions were saved in the library.");

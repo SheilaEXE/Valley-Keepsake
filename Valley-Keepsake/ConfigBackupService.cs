@@ -54,7 +54,13 @@ internal sealed class ConfigBackupService
             throw new InvalidOperationException(T("Não foi encontrada uma cópia salva deste config.json.", "No saved copy of this config.json was found."));
 
         var destination = Path.Combine(result.Mod.Directory, "config.json");
-        var backupRoot = Path.Combine(GetStorageRoot(libraryRoot), "Backups antes de restaurar", DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss"), FolderFor(result.Mod.UniqueId));
+        var folderName = T("Backups antes de restaurar", "Backups before restore");
+        if (string.IsNullOrWhiteSpace(folderName) || folderName is "." or ".." ||
+            folderName != folderName.TrimEnd(' ', '.') ||
+            folderName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+            folderName.Contains('/') || folderName.Contains('\\'))
+            folderName = "Backups before restore";
+        var backupRoot = Path.Combine(GetStorageRoot(libraryRoot), folderName, DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss"), FolderFor(result.Mod.UniqueId));
         if (File.Exists(destination))
         {
             Directory.CreateDirectory(backupRoot);

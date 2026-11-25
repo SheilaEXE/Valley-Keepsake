@@ -34,6 +34,7 @@
     "Back up all configs": "Back up all configs",
     "Back up and restore mod config.json files.": "Back up and restore mod config.json files.",
     "Backup complete": "Backup complete",
+    "Backups before restore": "Backups before restore",
     "Browse…": "Browse…",
     "Cancel": "Cancel",
     "Changes the app colors and pixel frames. Your choice is saved.": "Changes the app colors and pixel frames. Your choice is saved.",
@@ -89,6 +90,7 @@
     "Could not save language": "Could not save language",
     "Could not save library folders": "Could not save library folders",
     "Could not save library folders: ": "Could not save library folders: ",
+    "Could not save the Mods folder: ": "Could not save the Mods folder: ",
     "Could not save theme": "Could not save theme",
     "Could not search for new mods:\n\n": "Could not search for new mods:\n\n",
     "Could not undo": "Could not undo",
@@ -101,6 +103,8 @@
     "Done": "Done",
     "Done. {0} translation(s) applied.": "Done. {0} translation(s) applied.",
     "Double-click to confirm an uncertain target or browse for a missing translation file.": "Double-click to confirm an uncertain target or browse for a missing translation file.",
+    "Drag to expand or shrink the list": "Drag to expand or shrink the list",
+    "Drag to expand or shrink the list.": "Drag to expand or shrink the list.",
     "English reference saved in the library. The source was not changed.": "English reference saved in the library. The source was not changed.",
     "English reference saved to the library. The source was not changed.": "English reference saved to the library. The source was not changed.",
     "entire folder": "entire folder",
@@ -127,6 +131,7 @@
     "Missing translation file": "Missing translation file",
     "Mod settings backup": "Mod settings backup",
     "Mod settings backup\nSave config.json files before updating. Current settings are backed up before each restore.": "Mod settings backup\nSave config.json files before updating. Current settings are backed up before each restore.",
+    "No": "No",
     "No application from this session to undo.": "No application from this session to undo.",
     "No backup": "No backup",
     "No matching mod was found.": "No matching mod was found.",
@@ -226,6 +231,7 @@
     "Update": "Update",
     "Update available": "Update available",
     "Valley Keepsake — report": "Valley Keepsake — report",
-    "Valley Keepsake version {0} is available. Update now?": "Valley Keepsake version {0} is available. Update now?"
+    "Valley Keepsake version {0} is available. Update now?": "Valley Keepsake version {0} is available. Update now?",
+    "Yes": "Yes"
   }
 }

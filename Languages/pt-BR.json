@@ -34,6 +34,7 @@
     "Back up all configs": "Exportar todos os configs",
     "Back up and restore mod config.json files.": "Salva e restaura arquivos config.json dos mods.",
     "Backup complete": "Backup concluído",
+    "Backups before restore": "Backups antes de restaurar",
     "Browse…": "Escolher…",
     "Cancel": "Cancelar",
     "Changes the app colors and pixel frames. Your choice is saved.": "Muda as cores e molduras do aplicativo. Sua escolha fica salva.",
@@ -89,6 +90,7 @@
     "Could not save language": "Não foi possível salvar o idioma",
     "Could not save library folders": "Não foi possível salvar as bibliotecas",
     "Could not save library folders: ": "Não foi possível salvar as bibliotecas: ",
+    "Could not save the Mods folder: ": "Não foi possível salvar a pasta Mods: ",
     "Could not save theme": "Não foi possível salvar o tema",
     "Could not search for new mods:\n\n": "Não foi possível procurar novos mods:\n\n",
     "Could not undo": "Não foi possível desfazer",
@@ -101,6 +103,8 @@
     "Done": "Concluído",
     "Done. {0} translation(s) applied.": "Processo concluído. {0} tradução(ões) aplicada(s).",
     "Double-click to confirm an uncertain target or browse for a missing translation file.": "Clique duas vezes para confirmar um destino incerto ou procurar um arquivo de tradução ausente.",
+    "Drag to expand or shrink the list": "Arraste para aumentar ou diminuir a lista",
+    "Drag to expand or shrink the list.": "Arraste para aumentar ou diminuir a lista.",
     "English reference saved in the library. The source was not changed.": "Referência em inglês salva na biblioteca. A origem não foi alterada.",
     "English reference saved to the library. The source was not changed.": "Referência em inglês salva na biblioteca. A origem não foi alterada.",
     "entire folder": "pasta inteira",
@@ -127,6 +131,7 @@
     "Missing translation file": "Arquivo de tradução ausente",
     "Mod settings backup": "Backup de configurações dos mods",
     "Mod settings backup\nSave config.json files before updating. Current settings are backed up before each restore.": "Backup de configurações dos mods\nSalve seus config.json antes de atualizar. A versão atual é guardada antes de cada restauração.",
+    "No": "Não",
     "No application from this session to undo.": "Nenhuma aplicação desta sessão para desfazer.",
     "No backup": "Sem cópia salva",
     "No matching mod was found.": "Nenhum mod correspondente foi encontrado.",
@@ -226,6 +231,7 @@
     "Update": "Atualizar",
     "Update available": "Atualização disponível",
     "Valley Keepsake — report": "Valley Keepsake — relatório",
-    "Valley Keepsake version {0} is available. Update now?": "A versão {0} do Valley Keepsake está disponível. Quer atualizar agora?"
+    "Valley Keepsake version {0} is available. Update now?": "A versão {0} do Valley Keepsake está disponível. Quer atualizar agora?",
+    "Yes": "Sim"
   }
 }

@@ -5,6 +5,7 @@ The desktop apps read one JSON file per interface language. `en.json` is the com
 1. Copy `en.json` to a file named after your language code, for example `es.json`.
 2. Change `language` to that same code and `name` to the name shown in the app's Interface selector.
 3. Translate the **values** in `strings`. Keep every key exactly as it is, including spaces and punctuation. Keep placeholders such as `{0}` and `{1}` in the translated value; they insert mod names, counts, and paths. You may reorder the placeholders to suit your language.
+   The `Backups before restore` value is used as a folder name when restoring settings. Use a single valid folder name without `/` or `\\`; existing backup folders are kept under their original names.
 4. Put the file in the `Languages` folder beside the app. For a translation that survives replacing the app folder, put it in your personal Languages folder instead:
    - Windows: `%LOCALAPPDATA%\TradutorModsStardew\Languages`
    - Linux: `~/.local/share/TradutorModsStardew/Languages`

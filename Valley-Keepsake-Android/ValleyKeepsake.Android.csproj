@@ -20,6 +20,8 @@
     <AvaloniaResource Include="Assets\Junimo*.png" />
     <AvaloniaResource Include="Assets\PaintPalette.png" />
     <AvaloniaResource Include="Assets\PixelifySans.ttf" />
+    <EmbeddedResource Include="..\Languages\en.json" LogicalName="ValleyKeepsake.Android.Languages.en.json" />
+    <EmbeddedResource Include="..\Languages\pt-BR.json" LogicalName="ValleyKeepsake.Android.Languages.pt-BR.json" />
     <None Include="Assets\PixelifySans-OFL.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

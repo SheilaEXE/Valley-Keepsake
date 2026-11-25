@@ -136,7 +136,7 @@ internal sealed class MobileOperations
         return count;
     }
 
-    public async Task<int> RestoreConfigsAsync(IStorageFolder library, IEnumerable<MobileMod> mods)
+    public async Task<int> RestoreConfigsAsync(IStorageFolder library, IEnumerable<MobileMod> mods, string backupFolderName)
     {
         var count = 0;
         var backupRun = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss-fff") + "_" + Guid.NewGuid().ToString("N")[..6];
@@ -147,7 +147,7 @@ internal sealed class MobileOperations
             if (mod.CurrentConfig is not null)
             {
                 var backup = await MobileStorage.FolderAtAsync(library,
-                    ["Backups antes de restaurar", backupRun, SafeName(mod.UniqueId)], true);
+                    [backupFolderName, backupRun, SafeName(mod.UniqueId)], true);
                 await MobileStorage.CopyFileAsync(mod.CurrentConfig, backup!, "config.json");
             }
             await MobileStorage.CopyFileAsync(mod.SavedConfig!, mod.Folder, "config.json");
