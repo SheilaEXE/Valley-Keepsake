@@ -33,6 +33,10 @@ If upgrading from Valley Modkeeper on Windows, extract Valley Keepsake into a ne
 
 The installer does not install or remove game mods. Check both folder paths in the app before applying translations.
 
+### Optional SMAPI update notices
+
+If you also want SMAPI to report new Valley Keepsake versions when starting Stardew Valley, install the separate **Valley Keepsake Update Notifier** ZIP in your game's `Mods` folder. This companion is optional and works independently of the app's own update prompt. It only points SMAPI to the [Nexus Mods page](https://www.nexusmods.com/stardewvalley/mods/56027); it does not download or install app updates. Its [source and build instructions](Valley-Keepsake-UpdateNotifier/README.md) are included in this repository.
+
 ## How it works
 
 The application scans your **translation library** separately from the game's **Mods** folder. A translation may remain listed after its mod is disabled or renamed; an unmatched entry is not installed or applied automatically. It recognizes locale files such as `i18n/es.json`, locale folders such as `i18n/fr/`, selected `assets/Dialogues/<locale>` folders, and supported `content.<locale>.json` text maps. For Portuguese translations, `pt` and `pt-BR` are treated as the same destination language to avoid replacing an existing translation.
