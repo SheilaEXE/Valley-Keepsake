@@ -1,0 +1,72 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style Selector="ScrollBar:vertical">
+    <Setter Property="MinWidth" Value="17" />
+    <Setter Property="AllowAutoHide" Value="False" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{DynamicResource DeckScrollTrack}"
+                BorderBrush="{DynamicResource DeckScrollBorder}"
+                BorderThickness="1" CornerRadius="8" Padding="2">
+          <Track Orientation="Vertical" Minimum="{TemplateBinding Minimum}"
+                 Maximum="{TemplateBinding Maximum}"
+                 Value="{TemplateBinding Value, Mode=TwoWay}"
+                 ViewportSize="{TemplateBinding ViewportSize}"
+                 IsDirectionReversed="True">
+            <Track.DecreaseButton>
+              <RepeatButton Name="PART_PageUpButton" Focusable="False" Background="Transparent">
+                <RepeatButton.Template><ControlTemplate><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template>
+              </RepeatButton>
+            </Track.DecreaseButton>
+            <Track.IncreaseButton>
+              <RepeatButton Name="PART_PageDownButton" Focusable="False" Background="Transparent">
+                <RepeatButton.Template><ControlTemplate><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template>
+              </RepeatButton>
+            </Track.IncreaseButton>
+            <Thumb MinHeight="26" Background="{DynamicResource DeckScrollThumb}">
+              <Thumb.Template>
+                <ControlTemplate>
+                  <Border Background="{DynamicResource DeckScrollThumb}" CornerRadius="6" />
+                </ControlTemplate>
+              </Thumb.Template>
+            </Thumb>
+          </Track>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ScrollBar:horizontal">
+    <Setter Property="MinHeight" Value="17" />
+    <Setter Property="AllowAutoHide" Value="False" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{DynamicResource DeckScrollTrack}"
+                BorderBrush="{DynamicResource DeckScrollBorder}"
+                BorderThickness="1" CornerRadius="8" Padding="2">
+          <Track Orientation="Horizontal" Minimum="{TemplateBinding Minimum}"
+                 Maximum="{TemplateBinding Maximum}"
+                 Value="{TemplateBinding Value, Mode=TwoWay}"
+                 ViewportSize="{TemplateBinding ViewportSize}">
+            <Track.DecreaseButton>
+              <RepeatButton Name="PART_PageUpButton" Focusable="False" Background="Transparent">
+                <RepeatButton.Template><ControlTemplate><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template>
+              </RepeatButton>
+            </Track.DecreaseButton>
+            <Track.IncreaseButton>
+              <RepeatButton Name="PART_PageDownButton" Focusable="False" Background="Transparent">
+                <RepeatButton.Template><ControlTemplate><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template>
+              </RepeatButton>
+            </Track.IncreaseButton>
+            <Thumb MinWidth="26" Background="{DynamicResource DeckScrollThumb}">
+              <Thumb.Template>
+                <ControlTemplate>
+                  <Border Background="{DynamicResource DeckScrollThumb}" CornerRadius="6" />
+                </ControlTemplate>
+              </Thumb.Template>
+            </Thumb>
+          </Track>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+</Styles>

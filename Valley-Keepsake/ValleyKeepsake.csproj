@@ -20,7 +20,7 @@
     <Content Include="Assets\Junimo*.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\green_debris.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\pink_debris.png" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="Assets\PaintPalette.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\PaintPalette-*.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\Junimo-Note.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\DialogueBoxBorder.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\SlimeHutchBorder.png" CopyToOutputDirectory="PreserveNewest" />

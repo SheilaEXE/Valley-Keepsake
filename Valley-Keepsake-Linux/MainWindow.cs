@@ -30,7 +30,7 @@ internal sealed class MainWindow : Window
     private readonly ComboBox locale = new() { ItemsSource = new[] { "pt-BR", "en", "es", "fr", "de", "it", "ja", "ko", "zh-Hans", "zh-Hant", "ru", "tr", "pl", "cs" }.Select(TranslationLocales.DisplayOption).ToArray(), SelectedItem = TranslationLocales.DisplayOption(UiLanguage.TranslationLocale), Width = 140 };
     private readonly TextBlock summary = new() { Foreground = Brush("#AEE0E7"), VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.Bold };
     private readonly TextBlock subtitle = new() { Foreground = Brush("#AEE0E7"), FontWeight = FontWeight.Bold };
-    private readonly DataGrid grid = new() { AutoGenerateColumns = false, HeadersVisibility = DataGridHeadersVisibility.Column, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, Background = Brush("#103148"), Foreground = Brushes.White, BorderBrush = Brush("#1A617D") };
+    private readonly DataGrid grid = new() { AutoGenerateColumns = false, HeadersVisibility = DataGridHeadersVisibility.Column, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, Background = Brush("#103148"), Foreground = Brushes.White, BorderBrush = Brush("#1A617D") };
     private TextBlock? libraryLabel, configLibraryLabel, modsLabel, searchLabel, interfaceLabel, localeLabel;
     private Button? analyzeButton, prepareButton, configsButton, applyButton, undoButton;
     private readonly AppTheme initialTheme = ThemeStore.Current;
@@ -49,11 +49,15 @@ internal sealed class MainWindow : Window
     private Grid? headerPanel, footerPanel;
     private Grid? pageGrid;
     private Button? paletteButton;
+    private DeckWindowChrome? chrome;
+    private readonly Dictionary<ThemeKind, Avalonia.Media.Imaging.Bitmap> paletteIcons = [];
     private readonly List<Button> browseButtons = [];
     private readonly ObservableCollection<Row> rows = [];
     private List<MatchResult> results = [];
     private List<InstalledMod> installed = [];
     private readonly HashSet<string> expandedPackages = new(StringComparer.OrdinalIgnoreCase);
+    private int? sortColumnIndex;
+    private bool sortDescending;
     private List<ApplyRecord> lastApply = [];
     private string SelectedLocale => TranslationLocales.FromDisplayOption(locale.SelectedItem as string ?? "pt-BR");
 
@@ -76,7 +80,7 @@ internal sealed class MainWindow : Window
         configLibrary.LostFocus += (_, _) => SaveLibraries();
         Closing += (_, _) => SaveLibraries();
         Closing += (_, _) => updateCheckCancellation.Cancel();
-        Closed += (_, _) => { junimos.Dispose(); slimes.Dispose(); };
+        Closed += (_, _) => { junimos.Dispose(); slimes.Dispose(); foreach (var icon in paletteIcons.Values) icon.Dispose(); };
         Opened += async (_, _) => await CheckForUpdatesAsync();
         var root = new Grid { Margin = new Thickness(initialTheme.Kind switch { ThemeKind.Parchment => 84, ThemeKind.Wood => 64, ThemeKind.Mine => 56, ThemeKind.Garden => 72, _ => 20 }), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*,Auto") };
         rootLayout = root;
@@ -92,8 +96,11 @@ internal sealed class MainWindow : Window
         interfaceRow.Children.Add(interfaceLabel); interfaceRow.Children.Add(interfaceLanguage);
         paletteButton = new Button { Width = 32, Height = 32, Padding = new Thickness(0), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
         ToolTip.SetTip(paletteButton, T("Escolher tema", "Choose theme"));
-        var palettePath = DeckAssets.PathFor("PaintPalette.png");
-        if (File.Exists(palettePath)) paletteButton.Content = new Image { Source = new Avalonia.Media.Imaging.Bitmap(palettePath), Width = 27, Height = 27, Stretch = Stretch.Uniform };
+        foreach (ThemeKind kind in Enum.GetValues<ThemeKind>())
+        {
+            var palettePath = DeckAssets.PathFor($"PaintPalette-{kind}.png");
+            if (File.Exists(palettePath)) paletteIcons[kind] = new Avalonia.Media.Imaging.Bitmap(palettePath);
+        }
         paletteButton.Click += (_, _) => OpenThemeMenu();
         interfaceRow.Children.Add(paletteButton);
         var localeRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
@@ -155,11 +162,21 @@ internal sealed class MainWindow : Window
         Grid.SetRow(listDragHandle, 2); root.Children.Add(listDragHandle);
 
         grid.ItemsSource = rows;
-        grid.Columns.Add(new DataGridCheckBoxColumn { Header = "Aplicar", Binding = new Binding("Selected") });
-        grid.Columns.Add(new DataGridTextColumn { Header = "Tradução", Binding = new Binding("Translation"), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
-        grid.Columns.Add(new DataGridTextColumn { Header = "Mod encontrado", Binding = new Binding("Target"), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
-        grid.Columns.Add(new DataGridTextColumn { Header = "Situação", Binding = new Binding("Status"), Width = new DataGridLength(160) });
-        grid.Columns.Add(new DataGridTextColumn { Header = "Detalhes", Binding = new Binding("Detail"), Width = new DataGridLength(1.4, DataGridLengthUnitType.Star) });
+        grid.Columns.Add(new DataGridCheckBoxColumn { Header = "Aplicar", Binding = new Binding("Selected"), MinWidth = 70 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "Tradução", Binding = new Binding("Translation"), Width = new DataGridLength(1, DataGridLengthUnitType.Star), MinWidth = 280 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "Mod encontrado", Binding = new Binding("Target"), Width = new DataGridLength(1, DataGridLengthUnitType.Star), MinWidth = 310 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "Situação", Binding = new Binding("Status"), Width = new DataGridLength(170), MinWidth = 170 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "Detalhes", Binding = new Binding("Detail"), Width = new DataGridLength(1.4, DataGridLengthUnitType.Star), MinWidth = 560 });
+        grid.Sorting += (_, e) =>
+        {
+            e.Handled = true;
+            int index = grid.Columns.IndexOf(e.Column);
+            if (index < 0) return;
+            if (sortColumnIndex == index) sortDescending = !sortDescending;
+            else { sortColumnIndex = index; sortDescending = false; }
+            UpdateSortHeaders();
+            RefreshRows();
+        };
         grid.DoubleTapped += async (_, _) => { if (grid.SelectedItem is Row row) await OpenRowAsync(row); };
         grid.LoadingRow += (_, args) => PaintRow(args.Row);
         listFrame = new Border { Child = grid, Padding = new Thickness(3), BorderThickness = new Thickness(3) };
@@ -191,7 +208,7 @@ internal sealed class MainWindow : Window
         page.Children.Add(headerLeaves);
         page.Children.Add(root);
         page.Children.Add(outerFrame);
-        Content = page;
+        chrome = DeckWindowChrome.Attach(this, page, initialTheme);
         ApplyInterfaceLanguage();
         ApplyTheme();
     }
@@ -205,6 +222,7 @@ internal sealed class MainWindow : Window
         var dialog = new Window
         {
             Title = T("Atualização disponível", "Update available"),
+            Icon = new WindowIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "app.png")),
             Width = 500,
             Height = 200,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
@@ -228,7 +246,7 @@ internal sealed class MainWindow : Window
         buttons.Children.Add(cancel);
         buttons.Children.Add(openRelease);
         panel.Children.Add(buttons);
-        dialog.Content = panel;
+        DeckWindowChrome.Attach(dialog, DialogSurface(panel, theme), theme);
         if (!await dialog.ShowDialog<bool>(this)) return;
 
         try
@@ -259,6 +277,8 @@ internal sealed class MainWindow : Window
     private void ApplyTheme()
     {
         var theme = ThemeStore.Current;
+        DeckTheme.ApplyApplicationScrollBars(theme);
+        chrome?.ApplyTheme(theme);
         if (rootLayout is not null)
             rootLayout.Margin = new Thickness(theme.Kind switch { ThemeKind.Parchment => 84, ThemeKind.Wood => 64, ThemeKind.Mine => 56, ThemeKind.Garden => 72, _ => 20 });
         MinWidth = 1020;
@@ -271,7 +291,12 @@ internal sealed class MainWindow : Window
             if (label is not null) label.Foreground = DeckTheme.Brush(theme.Text);
         foreach (var field in new[] { library, configLibrary, mods, search }) DeckTheme.Field(field, theme);
         DeckTheme.Choice(interfaceLanguage, theme); DeckTheme.Choice(locale, theme);
-        if (paletteButton is not null) paletteButton.Foreground = DeckTheme.Brush(theme.Text);
+        if (paletteButton is not null)
+        {
+            paletteButton.Foreground = DeckTheme.Brush(theme.Text);
+            if (paletteIcons.TryGetValue(theme.Kind, out var icon))
+                paletteButton.Content = new Image { Source = icon, Width = 27, Height = 27, Stretch = Stretch.Uniform };
+        }
         if (fieldsFrame is not null)
         {
             fieldsFrame.Background = DeckTheme.Brush(theme.Panel);
@@ -375,14 +400,17 @@ internal sealed class MainWindow : Window
         if (undoButton is not null) undoButton.Content = T("Desfazer última aplicação", "Undo last application");
         foreach (var browse in browseButtons) browse.Content = T("Escolher…", "Browse…");
         if (paletteButton is not null) ToolTip.SetTip(paletteButton, T("Escolher tema", "Choose theme"));
-        if (grid.Columns.Count == 5)
-        {
-            grid.Columns[0].Header = T("Aplicar", "Apply");
-            grid.Columns[1].Header = T("Tradução", "Translation");
-            grid.Columns[2].Header = T("Mod encontrado", "Matched mod");
-            grid.Columns[3].Header = T("Situação", "Status");
-            grid.Columns[4].Header = T("Detalhes", "Details");
-        }
+        UpdateSortHeaders();
+    }
+
+    private void UpdateSortHeaders()
+    {
+        if (grid.Columns.Count != 5) return;
+        var labels = new[] { T("Aplicar", "Apply"), T("Tradução", "Translation"),
+            T("Mod encontrado", "Matched mod"), T("Situação", "Status"), T("Detalhes", "Details") };
+        for (int index = 0; index < labels.Length; index++)
+            grid.Columns[index].Header = labels[index] +
+                (sortColumnIndex == index ? sortDescending ? " ▼" : " ▲" : "");
     }
 
     private async void Analyze(object? sender, RoutedEventArgs e)
@@ -477,8 +505,16 @@ internal sealed class MainWindow : Window
         rows.Clear();
         var visible = results.Where(x => x.Translation.Locale == SelectedLocale &&
             (string.IsNullOrWhiteSpace(term) || (x.Translation.LibraryPackage + " " + x.Translation.ComponentName + " " + x.Target?.DisplayName + " " + x.Target?.UniqueId).Contains(term, StringComparison.CurrentCultureIgnoreCase)));
-        foreach (var group in visible.GroupBy(x => x.Translation.LibraryPackage, StringComparer.OrdinalIgnoreCase)
-            .OrderBy(group => group.Min(x => StateOrder(x.State))).ThenBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase))
+        var groups = visible.GroupBy(x => x.Translation.LibraryPackage, StringComparer.OrdinalIgnoreCase);
+        IOrderedEnumerable<IGrouping<string, MatchResult>> orderedGroups = sortColumnIndex is { } index
+            ? sortDescending
+                ? groups.OrderByDescending(group => GroupSortValue(group, index), StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase)
+                : groups.OrderBy(group => GroupSortValue(group, index), StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase)
+            : groups.OrderBy(group => group.Min(x => StateOrder(x.State)))
+                .ThenBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase);
+        foreach (var group in orderedGroups)
         {
             var members = group.OrderBy(x => x.Translation.RelativeComponentPath, StringComparer.CurrentCultureIgnoreCase).ToList();
             if (members.Count == 1) rows.Add(new Row(members[0], false, ScheduleSelectionRefresh));
@@ -501,6 +537,23 @@ internal sealed class MainWindow : Window
     {
         foreach (var row in rows) row.NotifySelectionChanged();
     }, DispatcherPriority.Background);
+
+    private string GroupSortValue(IGrouping<string, MatchResult> group, int columnIndex)
+    {
+        var members = group.OrderBy(x => x.Translation.RelativeComponentPath, StringComparer.CurrentCultureIgnoreCase).ToList();
+        var row = members.Count == 1
+            ? new Row(members[0], false, ScheduleSelectionRefresh)
+            : new Row(group.Key, members, expandedPackages.Contains(group.Key), ScheduleSelectionRefresh);
+        return columnIndex switch
+        {
+            0 => row.Selected ? "1" : "0",
+            1 => members.Count == 1 ? row.Translation : group.Key,
+            2 => row.Target,
+            3 => row.Status,
+            4 => row.Detail,
+            _ => group.Key
+        };
+    }
 
     private void RefreshMissing()
     {
@@ -561,7 +614,8 @@ internal sealed class MainWindow : Window
         var dialog = DialogWindow(T("Confirmar mod de destino", "Confirm target mod"), 1050, 650);
         var panel = new DockPanel { Margin = new Thickness(16) };
         var top = new StackPanel { Spacing = 8 };
-        top.Children.Add(new TextBlock { Text = T("Origem: ", "Source: ") + result.Translation.SourcePath, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.White });
+        var theme = ThemeStore.Current;
+        top.Children.Add(new TextBlock { Text = T("Origem: ", "Source: ") + result.Translation.SourcePath, TextWrapping = TextWrapping.Wrap, Foreground = DeckTheme.Brush(theme.Text) });
         var open = Button(T("Abrir origem no gerenciador de arquivos", "Open source in file manager"), "#1A617D");
         open.Click += (_, _) =>
         {
@@ -571,13 +625,14 @@ internal sealed class MainWindow : Window
                 Process.Start(new ProcessStartInfo("xdg-open", folder) { UseShellExecute = false });
         };
         top.Children.Add(open);
-        top.Children.Add(new TextBlock { Text = T("Escolha pelo caminho completo e UniqueID:", "Choose by full path and UniqueID:"), Foreground = Brushes.White });
+        DeckTheme.Button(open, theme, theme.IsLight ? theme.BorderDark : theme.BorderLight);
+        top.Children.Add(new TextBlock { Text = T("Escolha pelo caminho completo e UniqueID:", "Choose by full path and UniqueID:"), Foreground = DeckTheme.Brush(theme.Text) });
         var filter = Field(result.Translation.ComponentName);
         top.Children.Add(filter);
-        var destinationDetails = new TextBlock { Text = T("Selecione um componente para ver seu destino completo.", "Select a component to see its full destination."), TextWrapping = TextWrapping.Wrap, Foreground = Brush("#AEE0E7") };
+        var destinationDetails = new TextBlock { Text = T("Selecione um componente para ver seu destino completo.", "Select a component to see its full destination."), TextWrapping = TextWrapping.Wrap, Foreground = DeckTheme.Brush(theme.Text) };
         top.Children.Add(destinationDetails);
         DockPanel.SetDock(top, Dock.Top); panel.Children.Add(top);
-        var picker = new ListBox { Background = Brush("#133A53"), Foreground = Brushes.White };
+        var picker = new ListBox { Background = DeckTheme.Brush(theme.Row), Foreground = DeckTheme.Brush(theme.Text) };
         picker.SelectionChanged += (_, _) => destinationDetails.Text = picker.SelectedItem is PickerItem chosen
             ? string.Format(T("Destino: {0}\nUniqueID: {1}", "Target: {0}\nUniqueID: {1}"), chosen.Mod.Directory, chosen.Mod.UniqueId)
             : T("Selecione um componente para ver seu destino completo.", "Select a component to see its full destination.");
@@ -593,10 +648,12 @@ internal sealed class MainWindow : Window
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
         var cancel = Button(T("Cancelar", "Cancel"), "#685BA6"); cancel.Click += (_, _) => dialog.Close((InstalledMod?)null);
         var confirm = Button(T("Confirmar", "Confirm"), "#286A58"); confirm.Click += (_, _) => dialog.Close((picker.SelectedItem as PickerItem)?.Mod);
+        DeckTheme.Button(cancel, theme, theme.BorderLight);
+        DeckTheme.Button(confirm, theme, theme.ScrollThumb);
         buttons.Children.Add(cancel); buttons.Children.Add(confirm);
         DockPanel.SetDock(buttons, Dock.Bottom); panel.Children.Add(buttons);
         panel.Children.Add(picker);
-        dialog.Content = panel;
+        DeckWindowChrome.Attach(dialog, DialogSurface(panel, theme), theme);
         return await dialog.ShowDialog<InstalledMod?>(this);
     }
 
@@ -688,44 +745,60 @@ internal sealed class MainWindow : Window
     private async Task<int> ChooseImportKindAsync()
     {
         var dialog = DialogWindow(T("Localizar tradução", "Find translation"), 620, 230);
+        var theme = ThemeStore.Current;
         var panel = new StackPanel { Margin = new Thickness(20), Spacing = 16 };
-        panel.Children.Add(new TextBlock { Text = T("Escolha onde está a tradução deste mod.\nO navegador começará na pasta i18n do mod, se ela existir.", "Choose where this mod's translation is stored.\nThe browser will start in the mod's i18n folder when available."), TextWrapping = TextWrapping.Wrap, Foreground = Brushes.White });
+        panel.Children.Add(new TextBlock { Text = T("Escolha onde está a tradução deste mod.\nO navegador começará na pasta i18n do mod, se ela existir.", "Choose where this mod's translation is stored.\nThe browser will start in the mod's i18n folder when available."), TextWrapping = TextWrapping.Wrap, Foreground = DeckTheme.Brush(theme.Text) });
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         var file = Button(T("Escolher arquivo JSON", "Choose JSON file"), "#1A617D"); file.Click += (_, _) => dialog.Close(2);
         var folder = Button(T("Escolher pasta do idioma", "Choose language folder"), "#286A58"); folder.Click += (_, _) => dialog.Close(1);
         var cancel = Button(T("Cancelar", "Cancel"), "#685BA6"); cancel.Click += (_, _) => dialog.Close(0);
+        DeckTheme.Button(file, theme, theme.IsLight ? theme.BorderDark : theme.BorderLight);
+        DeckTheme.Button(folder, theme, theme.ScrollThumb);
+        DeckTheme.Button(cancel, theme, theme.BorderLight);
         buttons.Children.Add(file); buttons.Children.Add(folder); buttons.Children.Add(cancel);
-        panel.Children.Add(buttons); dialog.Content = panel;
+        panel.Children.Add(buttons); DeckWindowChrome.Attach(dialog, DialogSurface(panel, theme), theme);
         return await dialog.ShowDialog<int>(this);
     }
 
     private async Task<bool> ConfirmAsync(string title, string message)
     {
         var dialog = DialogWindow(title, 600, 260);
+        var theme = ThemeStore.Current;
         var panel = new StackPanel { Margin = new Thickness(20), Spacing = 18 };
-        panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.White });
+        panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Foreground = DeckTheme.Brush(theme.Text) });
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
         var no = Button(T("Cancelar", "Cancel"), "#685BA6"); no.Click += (_, _) => dialog.Close(false);
         var yes = Button(T("Confirmar", "Confirm"), "#286A58"); yes.Click += (_, _) => dialog.Close(true);
+        DeckTheme.Button(no, theme, theme.BorderLight);
+        DeckTheme.Button(yes, theme, theme.ScrollThumb);
         buttons.Children.Add(no); buttons.Children.Add(yes); panel.Children.Add(buttons);
-        dialog.Content = panel;
+        DeckWindowChrome.Attach(dialog, DialogSurface(panel, theme), theme);
         return await dialog.ShowDialog<bool>(this);
     }
 
     private async Task NoticeAsync(string title, string message)
     {
         var dialog = DialogWindow(title, 600, 240);
+        var theme = ThemeStore.Current;
         var panel = new StackPanel { Margin = new Thickness(20), Spacing = 18 };
-        panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.White });
+        panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Foreground = DeckTheme.Brush(theme.Text) });
         var ok = Button(T("OK", "OK"), "#1A617D"); ok.HorizontalAlignment = HorizontalAlignment.Right; ok.Click += (_, _) => dialog.Close();
-        panel.Children.Add(ok); dialog.Content = panel;
+        DeckTheme.Button(ok, theme, theme.ScrollThumb);
+        panel.Children.Add(ok); DeckWindowChrome.Attach(dialog, DialogSurface(panel, theme), theme);
         await dialog.ShowDialog(this);
     }
 
     private static Window DialogWindow(string title, int width, int height) => new()
     {
-        Title = title, Width = width, Height = height, WindowStartupLocation = WindowStartupLocation.CenterOwner,
-        Background = Brush("#0A1F35")
+        Title = title, Icon = new WindowIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "app.png")),
+        Width = width, Height = height, WindowStartupLocation = WindowStartupLocation.CenterOwner,
+        Background = DeckTheme.Brush(ThemeStore.Current.Background)
+    };
+
+    private static Border DialogSurface(Control content, AppTheme theme) => new()
+    {
+        Child = content, Margin = new Thickness(12), BorderThickness = new Thickness(3),
+        BorderBrush = DeckTheme.Brush(theme.BorderDark), Background = DeckTheme.Brush(theme.Panel)
     };
 
     private sealed record PickerItem(InstalledMod Mod)

@@ -1,8 +1,8 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 using Avalonia.Styling;
-using Avalonia.Controls.Primitives;
 using Avalonia.VisualTree;
 using TradutorModsStardew;
 using DrawingColor = System.Drawing.Color;
@@ -11,6 +11,14 @@ namespace TradutorModsDeck;
 
 internal static class DeckTheme
 {
+    public static void ApplyApplicationScrollBars(AppTheme theme)
+    {
+        if (Application.Current is not { } app) return;
+        app.Resources["DeckScrollTrack"] = Brush(theme.ScrollTrack);
+        app.Resources["DeckScrollThumb"] = Brush(theme.ScrollThumb);
+        app.Resources["DeckScrollBorder"] = Brush(theme.BorderDark);
+    }
+
     private sealed class ButtonColors
     {
         public AppTheme Theme = ThemeStore.Current;
@@ -79,6 +87,10 @@ internal static class DeckTheme
 
     public static void Field(TextBox box, AppTheme theme)
     {
+        // A single-line field can scroll its text with the caret, but should
+        // never show the themed list scrollbar inside the input border.
+        ScrollViewer.SetHorizontalScrollBarVisibility(box, ScrollBarVisibility.Hidden);
+        ScrollViewer.SetVerticalScrollBarVisibility(box, ScrollBarVisibility.Disabled);
         box.Background = Brush(theme.Field);
         box.Foreground = Brush(theme.Text);
         box.BorderBrush = Brush(theme.BorderDark);
@@ -152,25 +164,6 @@ internal static class DeckTheme
                 new Setter(DataGridColumnHeader.FontSizeProperty, 15d),
                 new Setter(DataGridColumnHeader.FontWeightProperty, FontWeight.Bold),
                 new Setter(DataGridColumnHeader.MinHeightProperty, 34d)
-            }
-        });
-        grid.Styles.Add(new Style(selector => selector.OfType<ScrollBar>())
-        {
-            Setters =
-            {
-                new Setter(ScrollBar.BackgroundProperty, Brush(theme.ScrollTrack)),
-                new Setter(ScrollBar.AllowAutoHideProperty, false),
-                new Setter(ScrollBar.MinWidthProperty, 18d),
-                new Setter(ScrollBar.MinHeightProperty, 18d)
-            }
-        });
-        grid.Styles.Add(new Style(selector => selector.OfType<ScrollBar>().Descendant().OfType<Thumb>())
-        {
-            Setters =
-            {
-                new Setter(Thumb.BackgroundProperty, Brush(theme.ScrollThumb)),
-                new Setter(Thumb.MinWidthProperty, 12d),
-                new Setter(Thumb.MinHeightProperty, 24d)
             }
         });
     }

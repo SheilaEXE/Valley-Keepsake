@@ -9,8 +9,8 @@
     <AssemblyTitle>Valley Keepsake</AssemblyTitle>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="..\Languages\*.json" Link="Languages\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
-    <Content Include="..\Languages\README.md" Link="Languages\README.md" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <Content Include="..\Languages\*.json" Link="Languages\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <Content Include="..\Languages\README.md" Link="Languages\README.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <PackageReference Include="Avalonia" Version="11.2.3" />
     <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
@@ -23,20 +23,21 @@
     <Compile Include="..\Valley-Keepsake\ConfigBackupService.cs" Link="ConfigBackupService.cs" />
     <Compile Include="..\Valley-Keepsake\AppTheme.cs" Link="AppTheme.cs" />
     <Compile Include="..\Valley-Keepsake\UpdateChecker.cs" Link="UpdateChecker.cs" />
-    <None Include="Assets\app.png" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Assets\Junimo*.png" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Assets\green_debris.png" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Assets\pink_debris.png" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Assets\PaintPalette.png" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Assets\Junimo-Note.png" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Assets\DialogueBoxBorder.png" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Assets\SlimeHutchBorder.png" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Assets\Slime.png" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Assets\GardenBackground.png" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Assets\GardenFrame.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\app.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="Assets\Junimo*.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="Assets\green_debris.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="Assets\pink_debris.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="Assets\PaintPalette-*.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="Assets\Junimo-Note.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="Assets\DialogueBoxBorder.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="Assets\SlimeHutchBorder.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="Assets\Slime.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="Assets\GardenBackground.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="Assets\GardenFrame.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <AvaloniaResource Include="Assets\PixelifySans.ttf" />
-    <None Include="Assets\PixelifySans-OFL.txt" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="install.sh" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="README-INSTALAR-NO-LINUX.txt" CopyToOutputDirectory="PreserveNewest" />
+    <AvaloniaResource Include="DeckScrollBars.axaml" />
+    <None Include="Assets\PixelifySans-OFL.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="install.sh" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="README-INSTALAR-NO-LINUX.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
 </Project>

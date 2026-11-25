@@ -56,6 +56,8 @@ internal sealed class MainForm : Form
     private List<InstalledMod> mods = [];
     private List<MatchResult> results = [];
     private readonly HashSet<string> expandedPackages = new(StringComparer.OrdinalIgnoreCase);
+    private string? sortColumnName;
+    private bool sortDescending;
     private bool populatingGrid;
     private List<ApplyRecord> lastApply = [];
     private string? lastBackup;
@@ -64,12 +66,7 @@ internal sealed class MainForm : Form
     {
         Text = "Valley Keepsake";
         HandleCreated += (_, _) => WindowsTitleBar.Apply(this, ThemeStore.Current);
-        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico");
-        if (File.Exists(iconPath))
-        {
-            try { Icon = new Icon(iconPath); }
-            catch { }
-        }
+        WindowIcon.Apply(this);
         MinimumSize = new Size(1120, 740);
         Size = new Size(1400, 850);
         StartPosition = FormStartPosition.CenterScreen;
@@ -186,7 +183,7 @@ internal sealed class MainForm : Form
             try { UiLanguage.Set(selected.Code); }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, T("Não foi possível salvar o idioma", "Could not save language"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ThemedMessageBox.Show(this, ex.Message, T("Não foi possível salvar o idioma", "Could not save language"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                 languagePicker.SelectedIndex = interfaceLanguages.ToList().FindIndex(option => option.Code == UiLanguage.CurrentCode);
                 return;
             }
@@ -303,7 +300,7 @@ internal sealed class MainForm : Form
         try { ThemeStore.Set((ThemeKind)themePicker.SelectedIndex); }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, T("Não foi possível salvar o tema", "Could not save theme"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemedMessageBox.Show(this, ex.Message, T("Não foi possível salvar o tema", "Could not save theme"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             RefreshThemeNames();
             return;
         }
@@ -329,7 +326,9 @@ internal sealed class MainForm : Form
             BackColor = theme.Background,
             ForeColor = theme.Text
         };
+        WindowIcon.Apply(dialog);
         dialog.HandleCreated += (_, _) => WindowsTitleBar.Apply(dialog, theme);
+        dialog.Paint += (_, e) => ThemeFramePainter.DrawFrame(e.Graphics, dialog.ClientRectangle, theme);
         var message = new Label
         {
             Text = string.Format(T("A versão {0} do Valley Keepsake está disponível. Quer atualizar agora?",
@@ -350,7 +349,7 @@ internal sealed class MainForm : Form
         try { Process.Start(new ProcessStartInfo(update.ReleasePage.AbsoluteUri) { UseShellExecute = true }); }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, T("Não foi possível abrir o release", "Could not open release"),
+            ThemedMessageBox.Show(this, ex.Message, T("Não foi possível abrir o release", "Could not open release"),
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
@@ -571,6 +570,20 @@ internal sealed class MainForm : Form
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Target", HeaderText = "Mod encontrado", Width = 270, ReadOnly = true });
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Status", HeaderText = "Situação", Width = 170, ReadOnly = true });
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Detail", HeaderText = "Detalhes", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, ReadOnly = true });
+        foreach (DataGridViewColumn column in grid.Columns)
+            column.SortMode = DataGridViewColumnSortMode.Programmatic;
+        grid.ColumnHeaderMouseClick += (_, e) =>
+        {
+            if (e.Button != MouseButtons.Left) return;
+            var column = grid.Columns[e.ColumnIndex];
+            if (sortColumnName == column.Name) sortDescending = !sortDescending;
+            else { sortColumnName = column.Name; sortDescending = false; }
+            foreach (DataGridViewColumn current in grid.Columns)
+                current.HeaderCell.SortGlyphDirection = current == column
+                    ? sortDescending ? SortOrder.Descending : SortOrder.Ascending
+                    : SortOrder.None;
+            PopulateGrid();
+        };
         grid.CellValueChanged += GridCellValueChanged;
         grid.CurrentCellDirtyStateChanged += (_, _) => { if (grid.IsCurrentCellDirty) grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
         grid.CellDoubleClick += GridCellDoubleClick;
@@ -646,14 +659,14 @@ internal sealed class MainForm : Form
     private void SaveLibraries()
     {
         try { LibrarySelectionStore.Save(libraryBox.Text, configLibraryBox.Text); }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, T("Não foi possível salvar as bibliotecas", "Could not save library folders"), MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+        catch (Exception ex) { ThemedMessageBox.Show(this, ex.Message, T("Não foi possível salvar as bibliotecas", "Could not save library folders"), MessageBoxButtons.OK, MessageBoxIcon.Warning); }
     }
 
     private void Analyze()
     {
         if (!Directory.Exists(libraryBox.Text) || !Directory.Exists(modsBox.Text))
         {
-            MessageBox.Show(this, T("Escolha pastas existentes para a biblioteca e para os mods.", "Choose existing translation-library and Mods folders."), T("Pastas necessárias", "Folders required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ThemedMessageBox.Show(this, T("Escolha pastas existentes para a biblioteca e para os mods.", "Choose existing translation-library and Mods folders."), T("Pastas necessárias", "Folders required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         try
@@ -670,7 +683,7 @@ internal sealed class MainForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, T("Não foi possível concluir a análise:\n\n", "Could not complete the analysis:\n\n") + ex.Message, T("Erro", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemedMessageBox.Show(this, T("Não foi possível concluir a análise:\n\n", "Could not complete the analysis:\n\n") + ex.Message, T("Erro", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally { UseWaitCursor = false; }
     }
@@ -698,9 +711,16 @@ internal sealed class MainForm : Form
         try
         {
         grid.Rows.Clear();
-        foreach (var group in FilteredResults().GroupBy(result => result.Translation.LibraryPackage, StringComparer.OrdinalIgnoreCase)
-            .OrderBy(group => group.Min(result => StateOrder(result.State)))
-            .ThenBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase))
+        var groups = FilteredResults().GroupBy(result => result.Translation.LibraryPackage, StringComparer.OrdinalIgnoreCase);
+        IOrderedEnumerable<IGrouping<string, MatchResult>> orderedGroups = sortColumnName is { } columnName
+            ? sortDescending
+                ? groups.OrderByDescending(group => GroupSortValue(group, columnName), StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase)
+                : groups.OrderBy(group => GroupSortValue(group, columnName), StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase)
+            : groups.OrderBy(group => group.Min(result => StateOrder(result.State)))
+                .ThenBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase);
+        foreach (var group in orderedGroups)
         {
             var members = group.OrderBy(result => result.Translation.RelativeComponentPath, StringComparer.CurrentCultureIgnoreCase).ToList();
             if (members.Count == 1)
@@ -796,6 +816,35 @@ internal sealed class MainForm : Form
         _ => 6
     };
 
+    private static string GroupSortValue(IGrouping<string, MatchResult> group, string columnName)
+    {
+        var members = group.ToList();
+        var first = members[0];
+        bool grouped = members.Count > 1;
+        return columnName switch
+        {
+            "Use" => (grouped
+                ? members.Any(result => result.State == MatchState.Safe) &&
+                    members.Where(result => result.State == MatchState.Safe).All(result => result.Selected)
+                : first.Selected) ? "1" : "0",
+            "Translation" => grouped ? group.Key
+                : first.State == MatchState.MissingTranslationFile
+                    ? first.Target?.DisplayName ?? "—" : DisplayTranslation(first.Translation),
+            "Target" => grouped
+                ? string.Format(T("{0} componentes", "{0} components"), members.Count)
+                : DisplayTarget(first.Target),
+            "Status" => grouped
+                ? string.Format(T("{0} prontas", "{0} ready"), members.Count(result => result.State == MatchState.Safe))
+                : StatusText(first.State),
+            "Detail" => grouped
+                ? string.Format(T("{0} selecionadas • {1} a confirmar", "{0} selected • {1} to review"),
+                    members.Count(result => result.State == MatchState.Safe && result.Selected),
+                    members.Count(result => result.State == MatchState.NeedsConfirmation))
+                : first.Detail,
+            _ => group.Key
+        };
+    }
+
     private sealed record PackageGroup(string Name, List<MatchResult> Members);
 
     private string SelectedLocale => TranslationLocales.FromDisplayOption(localePicker.SelectedItem as string ?? UiLanguage.TranslationLocale);
@@ -820,7 +869,7 @@ internal sealed class MainForm : Form
         try { UiLanguage.SetTranslationLocale(SelectedLocale); }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, T("Não foi possível salvar o idioma", "Could not save language"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemedMessageBox.Show(this, ex.Message, T("Não foi possível salvar o idioma", "Could not save language"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         foreach (var result in results)
             if (result.State == MatchState.Safe && result.Translation.Locale != SelectedLocale)
@@ -895,7 +944,7 @@ internal sealed class MainForm : Form
     {
         var selected = results.Where(p => p.Translation.Locale == SelectedLocale && p.Selected && p.Target is not null && p.State == MatchState.Safe).ToList();
         if (selected.Count == 0) return;
-        var answer = MessageBox.Show(this, string.Format(T("Aplicar {0} tradução(ões) em {1}?\n\nTraduções existentes serão preservadas.", "Apply {0} translation(s) in {1}?\n\nExisting translations will be preserved."), selected.Count, SelectedLocale), T("Confirmar aplicação", "Confirm application"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        var answer = ThemedMessageBox.Show(this, string.Format(T("Aplicar {0} tradução(ões) em {1}?\n\nTraduções existentes serão preservadas.", "Apply {0} translation(s) in {1}?\n\nExisting translations will be preserved."), selected.Count, SelectedLocale), T("Confirmar aplicação", "Confirm application"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
         if (answer != DialogResult.Yes) return;
         lastBackup = Path.Combine(AppDataDirectory(), "Backups", DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss"));
         lastApply = [];
@@ -914,28 +963,28 @@ internal sealed class MainForm : Form
         WriteReport();
         undoButton.Enabled = lastApply.Count > 0;
         PopulateGrid(); UpdateSummary();
-        MessageBox.Show(this, string.Format(T("Processo concluído. {0} tradução(ões) aplicada(s).", "Done. {0} translation(s) applied."), lastApply.Count), T("Concluído", "Done"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+        ThemedMessageBox.Show(this, string.Format(T("Processo concluído. {0} tradução(ões) aplicada(s).", "Done. {0} translation(s) applied."), lastApply.Count), T("Concluído", "Done"), MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private void UndoLast()
     {
         if (lastApply.Count == 0) return;
-        if (MessageBox.Show(this, T("Desfazer os arquivos aplicados na última operação?", "Undo the files applied in the last operation?"), T("Confirmar", "Confirm"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        if (ThemedMessageBox.Show(this, T("Desfazer os arquivos aplicados na última operação?", "Undo the files applied in the last operation?"), T("Confirmar", "Confirm"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
         try
         {
             service.Undo(lastApply);
             lastApply = []; undoButton.Enabled = false;
             Analyze();
-            MessageBox.Show(this, T("A última aplicação foi desfeita.", "The last application was undone."), T("Concluído", "Done"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ThemedMessageBox.Show(this, T("A última aplicação foi desfeita.", "The last application was undone."), T("Concluído", "Done"), MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, T("Não foi possível desfazer", "Could not undo"), MessageBoxButtons.OK, MessageBoxIcon.Error); }
+        catch (Exception ex) { ThemedMessageBox.Show(this, ex.Message, T("Não foi possível desfazer", "Could not undo"), MessageBoxButtons.OK, MessageBoxIcon.Error); }
     }
 
     private void OpenConfigBackup()
     {
         if (!Directory.Exists(modsBox.Text))
         {
-            MessageBox.Show(this, T("Escolha uma pasta Mods existente.", "Choose an existing Mods folder."), T("Pasta necessária", "Folder required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ThemedMessageBox.Show(this, T("Escolha uma pasta Mods existente.", "Choose an existing Mods folder."), T("Pasta necessária", "Folder required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         try
@@ -946,12 +995,12 @@ internal sealed class MainForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, T("Não foi possível abrir a biblioteca de configurações", "Could not open settings library"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemedMessageBox.Show(this, ex.Message, T("Não foi possível abrir a biblioteca de configurações", "Could not open settings library"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             return;
         }
         if (!Directory.Exists(configLibraryBox.Text))
         {
-            MessageBox.Show(this, T("Escolha uma pasta existente para a biblioteca de configurações.", "Choose an existing settings library folder."), T("Pasta necessária", "Folder required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ThemedMessageBox.Show(this, T("Escolha uma pasta existente para a biblioteca de configurações.", "Choose an existing settings library folder."), T("Pasta necessária", "Folder required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         using var dialog = new ConfigBackupForm(configLibraryBox.Text, modsBox.Text, service);
@@ -962,7 +1011,7 @@ internal sealed class MainForm : Form
     {
         if (!Directory.Exists(libraryBox.Text) || !Directory.Exists(modsBox.Text))
         {
-            MessageBox.Show(this, T("Escolha primeiro a biblioteca de traduções e a pasta Mods.", "Choose the translation library and Mods folder first."), T("Pastas necessárias", "Folders required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ThemedMessageBox.Show(this, T("Escolha primeiro a biblioteca de traduções e a pasta Mods.", "Choose the translation library and Mods folder first."), T("Pastas necessárias", "Folders required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -973,7 +1022,7 @@ internal sealed class MainForm : Form
             var report = service.PrepareLibrary(libraryBox.Text, installed, SelectedLocale);
             var imported = service.ImportInstalledTranslations(libraryBox.Text, installed, SelectedLocale);
             Analyze();
-            MessageBox.Show(this,
+            ThemedMessageBox.Show(this,
                 string.Format(T("Busca concluída para {0}:\n\n• {1} pasta(s) nova(s) na biblioteca\n• {2} referência(s) i18n/default copiadas\n• {3} content.json copiado(s)\n• {4} tradução(ões) do idioma copiadas\n• {5} arquivo(s) inválido(s) ignorado(s)\n\nOs mods instalados não foram alterados.",
                     "Search finished for {0}:\n\n• {1} new library folder(s)\n• {2} i18n/default reference(s) copied\n• {3} content.json file(s) copied\n• {4} selected-language translation(s) copied\n• {5} invalid file(s) skipped\n\nInstalled mods were not changed."),
                     SelectedLocale, report.CreatedFolders, report.CopiedI18nReferences, report.CopiedContentReferences, imported.Imported, imported.Invalid),
@@ -981,7 +1030,7 @@ internal sealed class MainForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, T("Não foi possível procurar novos mods:\n\n", "Could not search for new mods:\n\n") + ex.Message, T("Erro", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemedMessageBox.Show(this, T("Não foi possível procurar novos mods:\n\n", "Could not search for new mods:\n\n") + ex.Message, T("Erro", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally { UseWaitCursor = false; }
     }
@@ -990,7 +1039,7 @@ internal sealed class MainForm : Form
     {
         if (!Directory.Exists(libraryBox.Text) || !Directory.Exists(modsBox.Text))
         {
-            MessageBox.Show(this, T("Escolha primeiro a biblioteca de traduções e a pasta Mods.", "Choose the translation library and Mods folder first."), T("Pastas necessárias", "Folders required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ThemedMessageBox.Show(this, T("Escolha primeiro a biblioteca de traduções e a pasta Mods.", "Choose the translation library and Mods folder first."), T("Pastas necessárias", "Folders required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         try
@@ -1018,23 +1067,23 @@ internal sealed class MainForm : Form
                 var detectedFolder = TranslationLocales.Normalize(Path.GetFileName(sourceFolder));
                 if (detectedFolder is not null && !TranslationLocales.SameTargetLanguage(detectedFolder, SelectedLocale))
                 {
-                    MessageBox.Show(this, string.Format(T("A pasta indica {0}, mas você selecionou {1}. Nada foi copiado.",
+                    ThemedMessageBox.Show(this, string.Format(T("A pasta indica {0}, mas você selecionou {1}. Nada foi copiado.",
                         "The folder indicates {0}, but you selected {1}. Nothing was copied."), detectedFolder, SelectedLocale),
                         T("Idioma diferente", "Different language"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
-                if (detectedFolder is null && MessageBox.Show(this,
+                if (detectedFolder is null && ThemedMessageBox.Show(this,
                     string.Format(T("O nome da pasta não identifica o idioma. Confirmar que ela contém a tradução em {0}?",
                         "The folder name does not identify a language. Confirm that it contains the translation in {0}?"), SelectedLocale),
                     T("Confirmar idioma", "Confirm language"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
                 var folderLocale = detectedFolder ?? SelectedLocale;
-                if (MessageBox.Show(this,
+                if (ThemedMessageBox.Show(this,
                     string.Format(T("Guardar a pasta inteira na biblioteca?\n\nOrigem: {0}\nIdioma: {1}\n\nA pasta original não será alterada.",
                         "Save the whole folder in the library?\n\nSource: {0}\nLanguage: {1}\n\nThe original folder will not be changed."), sourceFolder, folderLocale),
                     T("Confirmar importação", "Confirm import"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
                 service.ImportI18nDirectory(libraryBox.Text, mod, sourceFolder, folderLocale);
                 Analyze();
-                MessageBox.Show(this, T("A pasta inteira foi salva na biblioteca. A original não foi alterada.",
+                ThemedMessageBox.Show(this, T("A pasta inteira foi salva na biblioteca. A original não foi alterada.",
                     "The whole folder was saved in the library. The original was not changed."),
                     T("Concluído", "Done"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
@@ -1050,7 +1099,7 @@ internal sealed class MainForm : Form
             var sourcePath = fileDialog.FileName;
             if (Path.GetFileName(sourcePath).StartsWith("content.", StringComparison.OrdinalIgnoreCase))
             {
-                MessageBox.Show(this, T("Arquivos content.<idioma>.json usam um formato especial. Esta importação manual é para arquivos i18n; não alterei nada.", "content.<language>.json files use a special format. Manual import is for i18n files; nothing was changed."), T("Formato diferente", "Different format"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ThemedMessageBox.Show(this, T("Arquivos content.<idioma>.json usam um formato especial. Esta importação manual é para arquivos i18n; não alterei nada.", "content.<language>.json files use a special format. Manual import is for i18n files; nothing was changed."), T("Formato diferente", "Different format"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             if (TranslationLocales.IsDefaultReference(sourcePath))
@@ -1062,13 +1111,13 @@ internal sealed class MainForm : Form
             var detected = TranslationLocales.FromFileName(sourcePath);
             if (detected is not null && !TranslationLocales.SameTargetLanguage(detected, SelectedLocale))
             {
-                MessageBox.Show(this,
+                ThemedMessageBox.Show(this,
                     string.Format(T("O nome do arquivo indica {0}, mas você selecionou {1}. Escolha o idioma correto no topo ou procure outro arquivo; nada foi copiado.",
                         "The file name indicates {0}, but you selected {1}. Choose the correct language at the top or browse for another file; nothing was copied."), detected, SelectedLocale),
                     T("Idioma diferente", "Different language"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            if (detected is null && MessageBox.Show(this,
+            if (detected is null && ThemedMessageBox.Show(this,
                 string.Format(T("O nome do arquivo não identifica o idioma. Confirmar que este arquivo é uma tradução em {0}?", "The file name does not identify a language. Confirm that this is a translation in {0}?"), SelectedLocale),
                 T("Confirmar idioma", "Confirm language"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
             var locale = detected ?? SelectedLocale;
@@ -1078,15 +1127,15 @@ internal sealed class MainForm : Form
                 "Save this translation in the library?\n\nSource: {0}\nLanguage: {1}\nDestination: {2}{3}"),
                 sourcePath, locale, destination,
                 exists ? T("\n\nJá existe uma cópia. Se substituir, a versão atual será guardada em backup.", "\n\nA copy already exists. If replaced, the current version will be backed up.") : "");
-            if (MessageBox.Show(this, prompt, exists ? T("Confirmar substituição", "Confirm replacement") : T("Confirmar importação", "Confirm import"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+            if (ThemedMessageBox.Show(this, prompt, exists ? T("Confirmar substituição", "Confirm replacement") : T("Confirmar importação", "Confirm import"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
 
             service.ImportI18nFile(libraryBox.Text, mod, sourcePath, locale, exists);
             Analyze();
-            MessageBox.Show(this, T("A tradução foi salva na biblioteca. O arquivo original não foi alterado.", "The translation was saved in the library. The original file was not changed."), T("Concluído", "Done"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ThemedMessageBox.Show(this, T("A tradução foi salva na biblioteca. O arquivo original não foi alterado.", "The translation was saved in the library. The original file was not changed."), T("Concluído", "Done"), MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, T("Não foi possível importar", "Could not import"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ThemedMessageBox.Show(this, ex.Message, T("Não foi possível importar", "Could not import"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -1106,6 +1155,8 @@ internal sealed class MainForm : Form
             BackColor = theme.Background,
             ForeColor = theme.Text
         };
+        WindowIcon.Apply(dialog);
+        dialog.HandleCreated += (_, _) => WindowsTitleBar.Apply(dialog, theme);
         var explanation = new Label
         {
             Text = T("Escolha onde está a tradução deste mod.\nO navegador começará na pasta i18n do mod, se ela existir.",
@@ -1131,18 +1182,18 @@ internal sealed class MainForm : Form
     {
         if (!TranslationLocales.SameTargetLanguage(SelectedLocale, "en"))
         {
-            MessageBox.Show(this, T("default é a referência em inglês. Selecione en (default) para guardá-la; nada foi copiado.",
+            ThemedMessageBox.Show(this, T("default é a referência em inglês. Selecione en (default) para guardá-la; nada foi copiado.",
                 "default is the English reference. Select en (default) to save it; nothing was copied."),
                 T("Idioma diferente", "Different language"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
-        if (MessageBox.Show(this,
+        if (ThemedMessageBox.Show(this,
             string.Format(T("Guardar {0} como referência em inglês?\n\nEla não será aplicada por cima do default de um mod atualizado.",
                 "Save {0} as an English reference?\n\nIt will not overwrite an updated mod's default file."), sourcePath),
             T("Confirmar importação", "Confirm import"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
         service.ImportDefaultReference(libraryBox.Text, mod, sourcePath);
         Analyze();
-        MessageBox.Show(this, T("Referência em inglês salva na biblioteca. A origem não foi alterada.",
+        ThemedMessageBox.Show(this, T("Referência em inglês salva na biblioteca. A origem não foi alterada.",
             "English reference saved in the library. The source was not changed."),
             T("Concluído", "Done"), MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
@@ -1257,6 +1308,8 @@ internal sealed class TargetPickerForm : Form
     {
         var theme = ThemeStore.Current;
         Text = UiLanguage.Text("Confirmar mod de destino", "Confirm target mod");
+        WindowIcon.Apply(this);
+        HandleCreated += (_, _) => WindowsTitleBar.Apply(this, theme);
         Size = new Size(1000, 600);
         StartPosition = FormStartPosition.CenterParent;
         Font = new Font("Segoe UI", 10);

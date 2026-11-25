@@ -5,7 +5,7 @@ namespace TradutorModsStardew;
 internal sealed class ThemePaletteButton : Control
 {
     private AppTheme theme = ThemeStore.Current;
-    private readonly Bitmap? icon;
+    private Bitmap? icon;
 
     public ThemePaletteButton()
     {
@@ -17,13 +17,19 @@ internal sealed class ThemePaletteButton : Control
         Cursor = Cursors.Hand;
         TabStop = true;
         AccessibleRole = AccessibleRole.PushButton;
-        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "PaintPalette.png");
-        try { if (File.Exists(path)) icon = new Bitmap(path); }
-        catch (ArgumentException) { }
+        ApplyTheme(theme);
     }
 
     public void ApplyTheme(AppTheme value)
     {
+        if (icon is null || theme.Kind != value.Kind)
+        {
+            icon?.Dispose();
+            icon = null;
+            var path = Path.Combine(AppContext.BaseDirectory, "Assets", $"PaintPalette-{value.Kind}.png");
+            try { if (File.Exists(path)) icon = new Bitmap(path); }
+            catch (ArgumentException) { }
+        }
         theme = value;
         Invalidate();
     }

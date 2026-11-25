@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -19,6 +20,7 @@ internal sealed class ConfigWindow : Window
     private readonly ConfigBackupService configService = new();
     private readonly ObservableCollection<Row> rows = [];
     private readonly TextBlock summary = new() { Foreground = Brush("#AEE0E7"), VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.Bold };
+    private readonly Button restoreSelectedButton = Button(T("Restaurar selecionados", "Restore selected"), "#286A58");
     private List<ConfigResult> results = [];
     private readonly AppTheme theme = ThemeStore.Current;
 
@@ -40,12 +42,12 @@ internal sealed class ConfigWindow : Window
             new TextBlock { Text = T("Backup de configurações dos mods", "Mod settings backup"), FontSize = 22, FontWeight = FontWeight.Bold, Foreground = DeckTheme.Brush(theme.Title) },
             new TextBlock { Text = T("Salve seus config.json antes de atualizar. A configuração atual é guardada antes de cada restauração.", "Save config.json files before updating. Current settings are backed up before each restore."), TextWrapping = TextWrapping.Wrap, Foreground = DeckTheme.Brush(theme.MutedText), FontWeight = FontWeight.Bold }
         }});
-        var grid = new DataGrid { ItemsSource = rows, AutoGenerateColumns = false, HeadersVisibility = DataGridHeadersVisibility.Column, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, Background = Brush("#103148"), Foreground = Brushes.White, BorderBrush = Brush("#1A617D") };
-        grid.Columns.Add(new DataGridCheckBoxColumn { Header = T("Restaurar", "Restore"), Binding = new Binding("Selected") });
-        grid.Columns.Add(new DataGridTextColumn { Header = "Mod", Binding = new Binding("Name"), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
-        grid.Columns.Add(new DataGridTextColumn { Header = "UniqueID", Binding = new Binding("UniqueId"), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
-        grid.Columns.Add(new DataGridTextColumn { Header = T("Situação", "Status"), Binding = new Binding("Status"), Width = new DataGridLength(180) });
-        grid.Columns.Add(new DataGridTextColumn { Header = T("Detalhes", "Details"), Binding = new Binding("Detail"), Width = new DataGridLength(1.5, DataGridLengthUnitType.Star) });
+        var grid = new DataGrid { ItemsSource = rows, AutoGenerateColumns = false, HeadersVisibility = DataGridHeadersVisibility.Column, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, Background = Brush("#103148"), Foreground = Brushes.White, BorderBrush = Brush("#1A617D") };
+        grid.Columns.Add(new DataGridCheckBoxColumn { Header = T("Restaurar", "Restore"), Binding = new Binding("Selected"), MinWidth = 76 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "Mod", Binding = new Binding("Name"), Width = new DataGridLength(1, DataGridLengthUnitType.Star), MinWidth = 280 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "UniqueID", Binding = new Binding("UniqueId"), Width = new DataGridLength(1, DataGridLengthUnitType.Star), MinWidth = 300 });
+        grid.Columns.Add(new DataGridTextColumn { Header = T("Situação", "Status"), Binding = new Binding("Status"), Width = new DataGridLength(190), MinWidth = 190 });
+        grid.Columns.Add(new DataGridTextColumn { Header = T("Detalhes", "Details"), Binding = new Binding("Detail"), Width = new DataGridLength(1.5, DataGridLengthUnitType.Star), MinWidth = 540 });
         DeckTheme.Grid(grid, theme);
         grid.LoadingRow += (_, args) => PaintRow(args.Row);
         var listFrame = new Border { Child = grid, BorderThickness = new Thickness(3), Padding = new Thickness(3), Margin = new Thickness(0, 18, 0, 0), BorderBrush = DeckTheme.Brush(theme.BorderDark), Background = DeckTheme.Brush(theme.Row) };
@@ -55,16 +57,17 @@ internal sealed class ConfigWindow : Window
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
         var refresh = Button(T("Atualizar lista", "Refresh list"), "#685BA6"); refresh.Click += (_, _) => LoadResults();
         var export = Button(T("Exportar todos os configs", "Export all settings"), "#1A617D"); export.Click += ExportAll;
-        var restore = Button(T("Restaurar selecionados", "Restore selected"), "#286A58"); restore.Click += RestoreSelected;
+        restoreSelectedButton.IsEnabled = false;
+        restoreSelectedButton.Click += RestoreSelected;
         var restoreAll = Button(T("Restaurar tudo", "Restore all"), "#286A58"); restoreAll.Click += RestoreAll;
         var rose = System.Drawing.Color.FromArgb(243, 145, 182);
         var neutral = theme.IsLight ? theme.BorderDark : theme.BorderLight;
         DeckTheme.Button(refresh, theme, theme.Kind == ThemeKind.Garden ? rose : neutral);
         DeckTheme.Button(export, theme, theme.Kind == ThemeKind.Garden ? rose : neutral);
-        DeckTheme.Button(restore, theme, theme.Kind == ThemeKind.Garden ? rose : theme.ScrollThumb);
+        DeckTheme.Button(restoreSelectedButton, theme, theme.Kind == ThemeKind.Garden ? rose : theme.ScrollThumb);
         DeckTheme.Button(restoreAll, theme, theme.Kind == ThemeKind.Garden ? rose : theme.ScrollThumb);
         ToolTip.SetTip(restoreAll, T("Restaura todos os configs ausentes ou diferentes com uma confirmação única. Os arquivos atuais substituídos são guardados antes.", "Restores all missing or different configs with one confirmation. Existing files are backed up first."));
-        actions.Children.Add(refresh); actions.Children.Add(export); actions.Children.Add(restore); actions.Children.Add(restoreAll);
+        actions.Children.Add(refresh); actions.Children.Add(export); actions.Children.Add(restoreSelectedButton); actions.Children.Add(restoreAll);
         Grid.SetRow(actions, 1); footer.Children.Add(actions);
         Grid.SetRow(footer, 2); root.Children.Add(footer);
         var page = new Grid();
@@ -72,7 +75,7 @@ internal sealed class ConfigWindow : Window
         page.Children.Add(root);
         var outerFrame = new DeckFrame(); outerFrame.ApplyTheme(theme);
         page.Children.Add(outerFrame);
-        Content = page;
+        DeckWindowChrome.Attach(this, page, theme);
         summary.Foreground = DeckTheme.Brush(theme.MutedText);
         LoadResults();
     }
@@ -89,12 +92,20 @@ internal sealed class ConfigWindow : Window
         {
             results = configService.Compare(libraryRoot, modService.ScanMods(modsRoot));
             rows.Clear();
-            foreach (var result in results) rows.Add(new Row(result));
+            foreach (var result in results) rows.Add(new Row(result, UpdateRestoreSelectedButton));
             summary.Text = T($"{results.Count} mods encontrados • {results.Count(x => x.State == ConfigState.ReadyToRestore)} configuração(ões) prontas para restaurar",
                 $"{results.Count} mods found • {results.Count(x => x.State == ConfigState.ReadyToRestore)} settings ready to restore");
+            UpdateRestoreSelectedButton();
         }
-        catch (Exception ex) { summary.Text = T("Erro ao ler as configurações: ", "Could not read settings: ") + ex.Message; }
+        catch (Exception ex)
+        {
+            restoreSelectedButton.IsEnabled = false;
+            summary.Text = T("Erro ao ler as configurações: ", "Could not read settings: ") + ex.Message;
+        }
     }
+
+    private void UpdateRestoreSelectedButton() =>
+        restoreSelectedButton.IsEnabled = results.Any(result => result.Selected && result.State == ConfigState.ReadyToRestore);
 
     private async void ExportAll(object? sender, RoutedEventArgs e)
     {
@@ -159,40 +170,47 @@ internal sealed class ConfigWindow : Window
 
     private async Task<bool?> ConfirmAsync(string title, string message, bool showChoices = true, bool confirmAll = false)
     {
-        var dialog = new Window { Title = title, Width = 540, MinHeight = 210, SizeToContent = SizeToContent.Height, CanResize = false, Background = DeckTheme.Brush(theme.Background), WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        var dialog = new Window { Title = title, Icon = new WindowIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "app.png")), Width = 540, MinHeight = 210, SizeToContent = SizeToContent.Height, CanResize = false, Background = DeckTheme.Brush(theme.Background), WindowStartupLocation = WindowStartupLocation.CenterOwner };
         var panel = new StackPanel { Margin = new Thickness(22), Spacing = 16 };
         panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Foreground = DeckTheme.Brush(theme.Text), FontSize = 15 });
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
         if (showChoices)
         {
             var yes = Button(T("Restaurar", "Restore"), "#286A58"); yes.Click += (_, _) => dialog.Close(true);
+            DeckTheme.Button(yes, theme, theme.ScrollThumb);
             if (confirmAll)
             {
                 var cancelAll = Button(T("Cancelar", "Cancel"), "#7A4147"); cancelAll.Click += (_, _) => dialog.Close(false);
+                DeckTheme.Button(cancelAll, theme, theme.BorderLight);
                 buttons.Children.Add(cancelAll); buttons.Children.Add(yes);
             }
             else
             {
                 var no = Button(T("Pular", "Skip"), "#685BA6"); no.Click += (_, _) => dialog.Close(false);
                 var cancel = Button(T("Parar", "Stop"), "#7A4147"); cancel.Click += (_, _) => dialog.Close(null);
+                DeckTheme.Button(no, theme, theme.BorderLight);
+                DeckTheme.Button(cancel, theme, theme.BorderLight);
                 buttons.Children.Add(cancel); buttons.Children.Add(no); buttons.Children.Add(yes);
             }
         }
         else
         {
             var ok = Button("OK", "#1A617D"); ok.Click += (_, _) => dialog.Close(true); buttons.Children.Add(ok);
+            DeckTheme.Button(ok, theme, theme.ScrollThumb);
         }
-        panel.Children.Add(buttons); dialog.Content = panel;
+        panel.Children.Add(buttons);
+        DeckWindowChrome.Attach(dialog, new Border { Child = panel, Margin = new Thickness(12), BorderThickness = new Thickness(3),
+            BorderBrush = DeckTheme.Brush(theme.BorderDark), Background = DeckTheme.Brush(theme.Panel) }, theme);
         return await dialog.ShowDialog<bool?>(this);
     }
 
     private static Button Button(string text, string color) => new() { Content = text, Background = Brush(color), Foreground = Brushes.White, BorderBrush = Brush("#6CE0E6"), Padding = new Thickness(17, 8), FontWeight = FontWeight.SemiBold };
     private static IBrush Brush(string hex) => SolidColorBrush.Parse(hex);
 
-    private sealed class Row(ConfigResult result)
+    private sealed class Row(ConfigResult result, Action selectionChanged)
     {
         public ConfigState State => result.State;
-        public bool Selected { get => result.Selected; set => result.Selected = value; }
+        public bool Selected { get => result.Selected; set { result.Selected = value; selectionChanged(); } }
         public string Name => result.Mod.DisplayName;
         public string UniqueId => result.Mod.UniqueId;
         public string Detail => result.Detail;

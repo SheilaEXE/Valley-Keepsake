@@ -14,6 +14,10 @@ internal sealed class App : Application
         {
             Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml")
         });
+        Styles.Add(new StyleInclude(new Uri("avares://ValleyKeepsake/"))
+        {
+            Source = new Uri("avares://ValleyKeepsake/DeckScrollBars.axaml")
+        });
     }
     public override void OnFrameworkInitializationCompleted()
     {

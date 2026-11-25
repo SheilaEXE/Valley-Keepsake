@@ -116,6 +116,13 @@ internal sealed class ThemeSelector : UserControl
     {
         if (dropDown is not null || Items.Count == 0) return;
         if (anchor is null) Focus();
+        int viewportHeight = Math.Min(Items.Count, 10) * 27;
+        bool needsScroll = Items.Count > 10;
+        var viewport = new Panel
+        {
+            Size = new Size(Width - 4, viewportHeight),
+            BackColor = theme.Field
+        };
         var list = new ListBox
         {
             BorderStyle = BorderStyle.None,
@@ -125,10 +132,30 @@ internal sealed class ThemeSelector : UserControl
             ForeColor = theme.Text,
             Font = Font,
             IntegralHeight = false,
-            Width = Width - 4,
-            Height = Math.Min(Items.Count, 10) * 27
+            Width = viewport.Width - (needsScroll ? 18 : 0),
+            Height = Items.Count * 27,
+            Location = Point.Empty
         };
         foreach (var item in Items) list.Items.Add(item);
+        viewport.Controls.Add(list);
+        ThemedScrollBar? scroll = null;
+        if (needsScroll)
+        {
+            scroll = new ThemedScrollBar(Orientation.Vertical)
+            {
+                Dock = DockStyle.Right,
+                Width = 18
+            };
+            scroll.ApplyTheme(theme);
+            scroll.SetMetrics(list.Height, viewportHeight, 0);
+            scroll.ValueChanged += (_, _) => list.Top = -scroll.Value;
+            viewport.Controls.Add(scroll);
+            scroll.BringToFront();
+            void ScrollWheel(object? _, MouseEventArgs e) =>
+                scroll.Value -= Math.Sign(e.Delta) * list.ItemHeight * 3;
+            list.MouseWheel += ScrollWheel;
+            viewport.MouseWheel += ScrollWheel;
+        }
         list.DrawItem += (_, e) =>
         {
             if (e.Index < 0) return;
@@ -138,17 +165,17 @@ internal sealed class ThemeSelector : UserControl
                 new Rectangle(e.Bounds.X + 7, e.Bounds.Y, e.Bounds.Width - 10, e.Bounds.Height), theme.Text,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
         };
-        var host = new ToolStripControlHost(list)
+        var host = new ToolStripControlHost(viewport)
         {
             AutoSize = false,
-            Size = list.Size,
+            Size = viewport.Size,
             Padding = Padding.Empty,
             Margin = Padding.Empty
         };
         var menu = new ToolStripDropDown
         {
             AutoSize = false,
-            Size = new Size(Width, list.Height + 4),
+            Size = new Size(Width, viewportHeight + 4),
             Padding = new Padding(2),
             BackColor = theme.BorderLight,
             DropShadowEnabled = true
@@ -156,6 +183,16 @@ internal sealed class ThemeSelector : UserControl
         menu.Items.Add(host);
         dropDown = menu;
         list.SelectedIndex = SelectedIndex;
+        if (scroll is not null && list.SelectedIndex >= 10)
+            scroll.Value = Math.Min(list.SelectedIndex * list.ItemHeight, list.Height - viewportHeight);
+        list.SelectedIndexChanged += (_, _) =>
+        {
+            if (scroll is null || list.SelectedIndex < 0) return;
+            int top = list.SelectedIndex * list.ItemHeight;
+            if (top < scroll.Value) scroll.Value = top;
+            else if (top + list.ItemHeight > scroll.Value + viewportHeight)
+                scroll.Value = top + list.ItemHeight - viewportHeight;
+        };
         list.MouseClick += (_, _) => Choose();
         list.KeyDown += (_, e) =>
         {

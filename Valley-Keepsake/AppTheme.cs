@@ -36,7 +36,7 @@ internal sealed record AppTheme(
         MatchState.NeedsConfirmation => Color.FromArgb(94, 78, 38),
         MatchState.AlreadyTranslated => Color.FromArgb(25, 68, 91),
         MatchState.NoMatch => Color.FromArgb(91, 50, 65),
-        MatchState.MissingTranslationFile => Color.FromArgb(88, 53, 74),
+        MatchState.MissingTranslationFile => Color.FromArgb(128, 47, 59),
         MatchState.Applied => Color.FromArgb(25, 104, 82),
         MatchState.Failed => Color.FromArgb(112, 49, 58),
         _ => Row
@@ -44,7 +44,10 @@ internal sealed record AppTheme(
     {
         MatchState.Safe or MatchState.Applied => Blend(Row, Color.FromArgb(91, 164, 90), .30),
         MatchState.NeedsConfirmation => Blend(Row, Color.FromArgb(213, 172, 61), .32),
-        MatchState.NoMatch or MatchState.MissingTranslationFile or MatchState.Failed =>
+        MatchState.MissingTranslationFile => Kind == ThemeKind.Mine
+            ? Blend(Row, Color.FromArgb(205, 63, 75), .52)
+            : Blend(Row, Color.FromArgb(224, 88, 91), .48),
+        MatchState.NoMatch or MatchState.Failed =>
             Blend(Row, Color.FromArgb(196, 91, 110), .27),
         _ => Row
     };
