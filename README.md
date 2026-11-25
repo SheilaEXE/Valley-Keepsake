@@ -35,7 +35,7 @@ The installer does not install or remove game mods. Check both folder paths in t
 
 ### Optional SMAPI update notices
 
-If you also want SMAPI to report new Valley Keepsake versions when starting Stardew Valley, install the separate **Valley Keepsake Update Notifier** ZIP in your game's `Mods` folder. This companion is optional and works independently of the app's own update prompt. It only points SMAPI to the [Nexus Mods page](https://www.nexusmods.com/stardewvalley/mods/56027); it does not download or install app updates. Its [source and build instructions](Valley-Keepsake-UpdateNotifier/README.md) are included in this repository.
+If you also want SMAPI to report new Valley Keepsake versions when starting Stardew Valley, install the separate **Valley Keepsake Update Notifier** ZIP in your game's `Mods` folder. This companion is optional and works independently of the app's own update prompt. It only points SMAPI to the [Nexus Mods page](https://www.nexusmods.com/stardewvalley/mods/56037); it does not download or install app updates. Its [source and build instructions](Valley-Keepsake-UpdateNotifier/README.md) are included in this repository.
 
 ## How it works
 

@@ -5,5 +5,5 @@
   "Description": "Optional SMAPI update notices for the standalone Valley Keepsake app.",
   "UniqueID": "NatrollEXE.ValleyKeepsakeUpdateNotifier",
   "EntryDll": "ValleyKeepsake.UpdateNotifier.dll",
-  "UpdateKeys": [ "Nexus:56027" ]
+  "UpdateKeys": [ "Nexus:56037" ]
 }
