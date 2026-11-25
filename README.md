@@ -23,11 +23,11 @@ The app preserves translations already present in your Mods folder. It asks you 
 
 ## Download and install
 
-Download the ready-to-use ZIP for your operating system from the [latest release](https://github.com/SheilaEXE/Valley-Keepsake/releases/latest). The repository folders contain source code, not the ready-to-run application.
+Download the ready-to-use ZIP for your operating system from the [latest release](https://github.com/SheilaEXE/Valley-Keepsake/releases/latest). Extract it and open the `Valley-Keepsake` folder inside. The repository folders contain source code, not the ready-to-run application.
 
 - **Windows x64 (PC):** extract the Windows x64 ZIP and open `ValleyKeepsake.exe`.
 - **Windows x86 (32-bit, experimental):** extract the Windows x86 ZIP and open `ValleyKeepsake.exe`. The 32-bit package has not yet been tested on a 32-bit Windows installation.
-- **Linux x86-64 (including Steam Deck):** extract the Linux ZIP and run `bash install.sh` from the extracted folder. Open Valley Keepsake from your applications menu; a desktop shortcut is also created if a desktop folder exists. Installation is per-user and does not require `sudo`.
+- **Linux x86-64 (including Steam Deck):** extract the Linux ZIP and run `bash install.sh` from its `Valley-Keepsake` folder. Open Valley Keepsake from your applications menu; a desktop shortcut is also created if a desktop folder exists. Installation is per-user and does not require `sudo`.
 
 If upgrading from Valley Modkeeper on Windows, extract Valley Keepsake into a new folder and launch the new executable. The Linux installer replaces the old app launcher. Select your existing library folders once when opening a new build.
 
