@@ -24,7 +24,7 @@ internal sealed class MainWindow : Window
     private readonly CancellationTokenSource updateCheckCancellation = new();
     private readonly TextBox library = Field();
     private readonly TextBox configLibrary = Field();
-    private readonly TextBox mods = Field(FindInitialModsPath());
+    private readonly TextBox mods = Field(LoadModsPath());
     private readonly TextBox search = Field();
     private readonly ComboBox interfaceLanguage = new() { Width = 185 };
     private readonly ComboBox locale = new() { ItemsSource = new[] { "pt-BR", "en", "es", "fr", "de", "it", "ja", "ko", "zh-Hans", "zh-Hant", "ru", "tr", "pl", "cs" }.Select(TranslationLocales.DisplayOption).ToArray(), SelectedItem = TranslationLocales.DisplayOption(UiLanguage.TranslationLocale), Width = 140 };
@@ -53,6 +53,7 @@ internal sealed class MainWindow : Window
     private readonly Dictionary<ThemeKind, Avalonia.Media.Imaging.Bitmap> paletteIcons = [];
     private readonly List<Button> browseButtons = [];
     private readonly ObservableCollection<Row> rows = [];
+    private readonly DeckGridColumnSizer columnSizer = new();
     private List<MatchResult> results = [];
     private List<InstalledMod> installed = [];
     private readonly HashSet<string> expandedPackages = new(StringComparer.OrdinalIgnoreCase);
@@ -78,7 +79,9 @@ internal sealed class MainWindow : Window
         configLibrary.Text = savedLibraries.Configuration;
         library.LostFocus += (_, _) => SaveLibraries();
         configLibrary.LostFocus += (_, _) => SaveLibraries();
+        mods.LostFocus += (_, _) => SaveModsPath();
         Closing += (_, _) => SaveLibraries();
+        Closing += (_, _) => SaveModsPath();
         Closing += (_, _) => updateCheckCancellation.Cancel();
         Closed += (_, _) => { junimos.Dispose(); slimes.Dispose(); foreach (var icon in paletteIcons.Values) icon.Dispose(); };
         Opened += async (_, _) => await CheckForUpdatesAsync();
@@ -399,7 +402,23 @@ internal sealed class MainWindow : Window
         if (applyButton is not null) applyButton.Content = T("Aplicar selecionadas", "Apply selected");
         if (undoButton is not null) undoButton.Content = T("Desfazer última aplicação", "Undo last application");
         foreach (var browse in browseButtons) browse.Content = T("Escolher…", "Browse…");
-        if (paletteButton is not null) ToolTip.SetTip(paletteButton, T("Escolher tema", "Choose theme"));
+        if (analyzeButton is not null) ToolTip.SetTip(analyzeButton, T("Procura traduções na biblioteca e compara com os mods instalados.", "Finds library translations and matches them to installed mods."));
+        if (prepareButton is not null) ToolTip.SetTip(prepareButton, T("Procura novos mods, guarda referências e copia traduções do idioma escolhido que ainda não estão na biblioteca.", "Finds new mods, saves references, and copies selected-language translations not yet in the library."));
+        if (configsButton is not null) ToolTip.SetTip(configsButton, T("Salva e restaura arquivos config.json dos mods.", "Back up and restore mod config.json files."));
+        if (applyButton is not null) ToolTip.SetTip(applyButton, T("Aplica aos mods as traduções marcadas para o idioma selecionado.", "Applies checked translations for the selected language to the mods."));
+        if (undoButton is not null) ToolTip.SetTip(undoButton, T("Desfaz os arquivos aplicados na última operação desta sessão.", "Undoes files applied in the last operation of this session."));
+        if (browseButtons.Count >= 3)
+        {
+            ToolTip.SetTip(browseButtons[0], T("Escolha onde sua biblioteca de traduções fica guardada.", "Choose where your translation library is stored."));
+            ToolTip.SetTip(browseButtons[1], T("Escolha diretamente a pasta que guarda os backups de config.json.", "Choose the folder that directly contains the config.json backups."));
+            ToolTip.SetTip(browseButtons[2], T("Escolha a pasta Mods da instalação do Stardew Valley.", "Choose your Stardew Valley installation's Mods folder."));
+        }
+        ToolTip.SetTip(interfaceLanguage, T("Idioma da interface do programa.", "Program interface language."));
+        ToolTip.SetTip(locale, T("Idioma das traduções exibidas e aplicadas; um de cada vez.", "Language of the translations shown and applied, one at a time."));
+        ToolTip.SetTip(search, T("Filtra a lista por nome do mod, tradução ou UniqueID.", "Filters the list by mod name, translation, or UniqueID."));
+        ToolTip.SetTip(grid, T("Clique duas vezes para confirmar um destino incerto ou procurar um arquivo de tradução ausente.", "Double-click to confirm an uncertain target or browse for a missing translation file."));
+        if (paletteButton is not null) ToolTip.SetTip(paletteButton, T("Escolher tema. Sua escolha fica salva.", "Choose a theme. Your choice is saved."));
+        if (listDragHandle is not null) ToolTip.SetTip(listDragHandle, T("Arraste para aumentar ou diminuir a lista", "Drag to expand or shrink the list"));
         UpdateSortHeaders();
     }
 
@@ -524,6 +543,15 @@ internal sealed class MainWindow : Window
                 if (expandedPackages.Contains(group.Key))
                     foreach (var member in members) rows.Add(new Row(member, true, ScheduleSelectionRefresh));
             }
+        }
+        if (results.Count > 0)
+        {
+            var measuredRows = rows.Concat(results.Where(result => result.Translation.Locale == SelectedLocale)
+                .Select(result => new Row(result, true, ScheduleSelectionRefresh))).ToList();
+            columnSizer.Fit(grid, 1, measuredRows.Select(row => row.Translation), 280);
+            columnSizer.Fit(grid, 2, measuredRows.Select(row => row.Target), 310);
+            columnSizer.Fit(grid, 3, measuredRows.Select(row => row.Status), 170);
+            columnSizer.Fit(grid, 4, measuredRows.Select(row => row.Detail), 560);
         }
         var safe = results.Count(x => x.Translation.Locale == SelectedLocale && x.State == MatchState.Safe);
         if (listDragHandle is not null) listDragHandle.IsVisible = installed.Count > 0;
@@ -818,6 +846,7 @@ internal sealed class MainWindow : Window
         {
             field.Text = chosen[0].Path.LocalPath;
             if (ReferenceEquals(field, library) || ReferenceEquals(field, configLibrary)) SaveLibraries();
+            else if (ReferenceEquals(field, mods)) SaveModsPath();
         }
     }
 
@@ -825,6 +854,34 @@ internal sealed class MainWindow : Window
     {
         try { LibrarySelectionStore.Save(library.Text, configLibrary.Text); }
         catch (Exception ex) { summary.Text = T("Não foi possível salvar as bibliotecas: ", "Could not save library folders: ") + ex.Message; }
+    }
+
+    private static readonly string ModsSettingsPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "ValleyKeepsake", "mods-" + typeof(MainWindow).Module.ModuleVersionId.ToString("N") + ".txt");
+
+    private static string LoadModsPath()
+    {
+        try
+        {
+            var saved = File.ReadAllText(ModsSettingsPath).Trim();
+            return Directory.Exists(saved) ? Path.GetFullPath(saved) : "";
+        }
+        catch { return ""; }
+    }
+
+    private void SaveModsPath()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(ModsSettingsPath)!);
+            File.WriteAllText(ModsSettingsPath,
+                Directory.Exists(mods.Text) ? Path.GetFullPath(mods.Text!) : "");
+        }
+        catch (Exception ex)
+        {
+            summary.Text = T("Não foi possível salvar a pasta Mods: ", "Could not save the Mods folder: ") + ex.Message;
+        }
     }
 
     private void LoadSavedMappings()
@@ -906,16 +963,6 @@ internal sealed class MainWindow : Window
         return text;
     }
 
-    private static string FindInitialModsPath()
-    {
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var candidates = new[]
-        {
-            Path.Combine(home, ".local", "share", "Steam", "steamapps", "common", "Stardew Valley", "Mods"),
-            Path.Combine(home, ".steam", "steam", "steamapps", "common", "Stardew Valley", "Mods")
-        };
-        return candidates.FirstOrDefault(Directory.Exists) ?? candidates[0];
-    }
     private static TextBox Field(string text = "") => new() { Text = text, Background = Brush("#0C293D"), Foreground = Brush("#E7F9F7"), BorderBrush = Brush("#4DAEC0") };
     private static Button Button(string text, string color) => new() { Content = text, Background = Brush(color), Foreground = Brushes.White, BorderBrush = Brush("#6CE0E6"), Padding = new Thickness(17, 8), FontWeight = FontWeight.SemiBold };
     private static IBrush Brush(string hex) => SolidColorBrush.Parse(hex);

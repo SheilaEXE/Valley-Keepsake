@@ -47,6 +47,11 @@ internal sealed class MainForm : Form
     private TableLayoutPanel headerPanel = null!;
     private Panel bodyPanel = null!;
     private Panel gridHost = null!;
+    private Panel listDragHandle = null!;
+    private int expandedPathsHeight;
+    private int dragStartScreenY;
+    private int dragStartHeight;
+    private bool draggingList;
     private FlowLayoutPanel actionsPanel = null!;
     private FlowLayoutPanel titleRow = null!;
     private FlowLayoutPanel interfaceRow = null!;
@@ -217,8 +222,36 @@ internal sealed class MainForm : Form
         gridHost.Controls.Add(grid);
         gridHost.Controls.Add(verticalScroll);
         gridHost.Controls.Add(horizontalScroll);
+        listDragHandle = new BufferedPanel { Dock = DockStyle.Top, Height = 24, Visible = false, Cursor = Cursors.HSplit };
+        listDragHandle.Paint += (_, e) =>
+        {
+            var theme = ThemeStore.Current;
+            using var brush = new SolidBrush(theme.BorderDark);
+            e.Graphics.FillRectangle(brush, (listDragHandle.ClientSize.Width - 76) / 2,
+                (listDragHandle.ClientSize.Height - 5) / 2, 76, 5);
+        };
+        listDragHandle.MouseDown += (_, e) =>
+        {
+            if (e.Button != MouseButtons.Left) return;
+            expandedPathsHeight = Math.Max(expandedPathsHeight, pathsPanel.PreferredSize.Height);
+            dragStartHeight = pathsPanel.Visible ? pathsPanel.Height : 0;
+            dragStartScreenY = Cursor.Position.Y;
+            pathsPanel.AutoSize = false;
+            draggingList = true;
+            listDragHandle.Capture = true;
+        };
+        listDragHandle.MouseMove += (_, _) =>
+        {
+            if (!draggingList) return;
+            int height = Math.Clamp(dragStartHeight + Cursor.Position.Y - dragStartScreenY, 0, expandedPathsHeight);
+            pathsPanel.Visible = height > 0;
+            pathsPanel.Height = height;
+        };
+        listDragHandle.MouseUp += (_, _) => { draggingList = false; listDragHandle.Capture = false; };
+        listDragHandle.MouseCaptureChanged += (_, _) => { if (!listDragHandle.Capture) draggingList = false; };
         body.Controls.Add(gridHost);
         body.Controls.Add(footer);
+        body.Controls.Add(listDragHandle);
         body.Controls.Add(paths);
         body.Controls.Add(header);
         Controls.Add(body);
@@ -231,7 +264,7 @@ internal sealed class MainForm : Form
         footer.Paint += (_, e) => gardenLeaves.Draw(e.Graphics, footer, body);
         foreach (var surface in new[] { actions, titleRow, interfaceRow, translationRow })
             surface.Paint += (_, e) => gardenLeaves.Draw(e.Graphics, surface, body);
-        Shown += (_, _) => { UpdateScrollBars(); gardenLeaves.Reset(); };
+        Shown += (_, _) => { expandedPathsHeight = pathsPanel.Height; UpdateScrollBars(); gardenLeaves.Reset(); };
         Shown += async (_, _) => await CheckForUpdatesAsync();
         FormClosed += (_, _) => { updateCheckCancellation.Cancel(); gardenLeaves.Dispose(); };
         ApplyLanguage();
@@ -281,6 +314,7 @@ internal sealed class MainForm : Form
         toolTips.SetToolTip(themeButton, T("Escolher tema. Sua escolha fica salva.", "Choose a theme. Your choice is saved."));
         toolTips.SetToolTip(searchBox, T("Filtra a lista por nome do mod, tradução ou UniqueID.", "Filters the list by mod name, translation, or UniqueID."));
         toolTips.SetToolTip(grid, T("Clique duas vezes para confirmar um destino incerto ou procurar um arquivo de tradução ausente.", "Double-click to confirm an uncertain target or browse for a missing translation file."));
+        toolTips.SetToolTip(listDragHandle, T("Arraste para aumentar ou diminuir a lista.", "Drag to expand or shrink the list."));
         PopulateGrid();
     }
 
@@ -375,6 +409,8 @@ internal sealed class MainForm : Form
             headerPanel.BackColor = footerPanel.BackColor = actionsPanel.BackColor =
                 titleRow.BackColor = interfaceRow.BackColor = translationRow.BackColor = Color.Transparent;
         pathsPanel.BackColor = theme.Panel;
+        listDragHandle.BackColor = theme.Panel;
+        listDragHandle.Invalidate();
         pathsPanel.Padding = theme.Kind is ThemeKind.Mine or ThemeKind.Wood or ThemeKind.Garden
             ? new Padding(14, 8, 14, 6) : new Padding(14, 8, 14, 8);
         gridHost.Padding = theme.Kind == ThemeKind.Classic
@@ -569,7 +605,7 @@ internal sealed class MainForm : Form
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Translation", HeaderText = "Tradução", Width = 260, ReadOnly = true });
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Target", HeaderText = "Mod encontrado", Width = 270, ReadOnly = true });
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Status", HeaderText = "Situação", Width = 170, ReadOnly = true });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Detail", HeaderText = "Detalhes", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, ReadOnly = true });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Detail", HeaderText = "Detalhes", AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells, MinimumWidth = 560, ReadOnly = true });
         foreach (DataGridViewColumn column in grid.Columns)
             column.SortMode = DataGridViewColumnSortMode.Programmatic;
         grid.ColumnHeaderMouseClick += (_, e) =>
@@ -679,6 +715,7 @@ internal sealed class MainForm : Form
             RefreshLocales();
             RefreshMissingTranslations();
             PopulateGrid();
+            listDragHandle.Visible = mods.Count > 0;
             UpdateSummary();
         }
         catch (Exception ex)

@@ -124,7 +124,7 @@ internal sealed class ConfigBackupForm : Form
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Mod", HeaderText = "Mod", Width = 280, ReadOnly = true });
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "UniqueId", HeaderText = "UniqueID", Width = 260, ReadOnly = true });
         grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Status", HeaderText = T("Situação", "Status"), Width = 160, ReadOnly = true });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Detail", HeaderText = T("Detalhes", "Details"), AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells, MinimumWidth = 360, ReadOnly = true });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Detail", HeaderText = T("Detalhes", "Details"), AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells, MinimumWidth = 560, ReadOnly = true });
         grid.CellValueChanged += (_, e) =>
         {
             if (e.RowIndex >= 0 && grid.Columns[e.ColumnIndex].Name == "Use" && grid.Rows[e.RowIndex].Tag is ConfigResult result)

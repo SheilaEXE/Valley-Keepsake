@@ -19,6 +19,8 @@ internal sealed class ConfigWindow : Window
     private readonly TranslationService modService;
     private readonly ConfigBackupService configService = new();
     private readonly ObservableCollection<Row> rows = [];
+    private readonly DeckGridColumnSizer columnSizer = new();
+    private readonly DataGrid grid;
     private readonly TextBlock summary = new() { Foreground = Brush("#AEE0E7"), VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.Bold };
     private readonly Button restoreSelectedButton = Button(T("Restaurar selecionados", "Restore selected"), "#286A58");
     private List<ConfigResult> results = [];
@@ -42,7 +44,7 @@ internal sealed class ConfigWindow : Window
             new TextBlock { Text = T("Backup de configurações dos mods", "Mod settings backup"), FontSize = 22, FontWeight = FontWeight.Bold, Foreground = DeckTheme.Brush(theme.Title) },
             new TextBlock { Text = T("Salve seus config.json antes de atualizar. A configuração atual é guardada antes de cada restauração.", "Save config.json files before updating. Current settings are backed up before each restore."), TextWrapping = TextWrapping.Wrap, Foreground = DeckTheme.Brush(theme.MutedText), FontWeight = FontWeight.Bold }
         }});
-        var grid = new DataGrid { ItemsSource = rows, AutoGenerateColumns = false, HeadersVisibility = DataGridHeadersVisibility.Column, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, Background = Brush("#103148"), Foreground = Brushes.White, BorderBrush = Brush("#1A617D") };
+        grid = new DataGrid { ItemsSource = rows, AutoGenerateColumns = false, HeadersVisibility = DataGridHeadersVisibility.Column, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, Background = Brush("#103148"), Foreground = Brushes.White, BorderBrush = Brush("#1A617D") };
         grid.Columns.Add(new DataGridCheckBoxColumn { Header = T("Restaurar", "Restore"), Binding = new Binding("Selected"), MinWidth = 76 });
         grid.Columns.Add(new DataGridTextColumn { Header = "Mod", Binding = new Binding("Name"), Width = new DataGridLength(1, DataGridLengthUnitType.Star), MinWidth = 280 });
         grid.Columns.Add(new DataGridTextColumn { Header = "UniqueID", Binding = new Binding("UniqueId"), Width = new DataGridLength(1, DataGridLengthUnitType.Star), MinWidth = 300 });
@@ -66,6 +68,9 @@ internal sealed class ConfigWindow : Window
         DeckTheme.Button(export, theme, theme.Kind == ThemeKind.Garden ? rose : neutral);
         DeckTheme.Button(restoreSelectedButton, theme, theme.Kind == ThemeKind.Garden ? rose : theme.ScrollThumb);
         DeckTheme.Button(restoreAll, theme, theme.Kind == ThemeKind.Garden ? rose : theme.ScrollThumb);
+        ToolTip.SetTip(refresh, T("Procura config.json novos nos mods e atualiza a lista; não cria backup automaticamente.", "Finds new mod config.json files and refreshes the list; it does not create backups automatically."));
+        ToolTip.SetTip(export, T("Guarda uma cópia dos config.json dos mods na biblioteca.", "Saves copies of the mods' config.json files in the library."));
+        ToolTip.SetTip(restoreSelectedButton, T("Restaura os configs marcados, pedindo confirmação para cada mod.", "Restores checked configs, asking for confirmation for each mod."));
         ToolTip.SetTip(restoreAll, T("Restaura todos os configs ausentes ou diferentes com uma confirmação única. Os arquivos atuais substituídos são guardados antes.", "Restores all missing or different configs with one confirmation. Existing files are backed up first."));
         actions.Children.Add(refresh); actions.Children.Add(export); actions.Children.Add(restoreSelectedButton); actions.Children.Add(restoreAll);
         Grid.SetRow(actions, 1); footer.Children.Add(actions);
@@ -93,6 +98,10 @@ internal sealed class ConfigWindow : Window
             results = configService.Compare(libraryRoot, modService.ScanMods(modsRoot));
             rows.Clear();
             foreach (var result in results) rows.Add(new Row(result, UpdateRestoreSelectedButton));
+            columnSizer.Fit(grid, 1, rows.Select(row => row.Name), 280);
+            columnSizer.Fit(grid, 2, rows.Select(row => row.UniqueId), 300);
+            columnSizer.Fit(grid, 3, rows.Select(row => row.Status), 190);
+            columnSizer.Fit(grid, 4, rows.Select(row => row.Detail), 540);
             summary.Text = T($"{results.Count} mods encontrados • {results.Count(x => x.State == ConfigState.ReadyToRestore)} configuração(ões) prontas para restaurar",
                 $"{results.Count} mods found • {results.Count(x => x.State == ConfigState.ReadyToRestore)} settings ready to restore");
             UpdateRestoreSelectedButton();
